@@ -74,11 +74,11 @@ function handleStats() {
         'total_profit'  => (float)fetchVal($db, "SELECT COALESCE(SUM(profit),0)    FROM transactions WHERE type='sell'"),
         'total_bought'  => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM transactions WHERE type='buy'"),
         'total_sold'    => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM transactions WHERE type='sell'"),
-        'stock_value'   => (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE qty>0"),
-        'market_value'  => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE qty>0"),
-        'stock_count'   => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM cards WHERE qty>0"),
-        'unrealized'    => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE qty>0")
-                         - (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE qty>0"),
+        'stock_value'   => (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE deleted=0 AND qty>0"),
+        'market_value'  => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE deleted=0 AND qty>0"),
+        'stock_count'   => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM cards WHERE deleted=0 AND qty>0"),
+        'unrealized'    => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE deleted=0 AND qty>0")
+                         - (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE deleted=0 AND qty>0"),
     ]);
 }
 
