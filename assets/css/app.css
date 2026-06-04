@@ -484,12 +484,13 @@ body{
 .bulk-card-bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .bulk-field{display:flex;flex-direction:column;gap:4px}
 .bulk-field label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-.bulk-name{flex:1;min-width:0}
-.bulk-rarity{width:76px;flex-shrink:0}
+.bulk-name{flex:1;min-width:0;width:auto}
+.bulk-rarity{width:72px;flex-shrink:0}
+.bulk-cost,.bulk-qty{width:100%}
 .bulk-name,.bulk-rarity,.bulk-cost,.bulk-qty{
   height:42px;padding:0 10px;border:1.5px solid var(--border2);
   border-radius:var(--radius);font-size:15px;color:var(--text);background:var(--surface);
-  transition:border-color .15s,box-shadow .15s;outline:none;font-family:inherit;width:100%
+  transition:border-color .15s,box-shadow .15s;outline:none;font-family:inherit;
 }
 .bulk-name:focus,.bulk-rarity:focus,.bulk-cost:focus,.bulk-qty:focus{
   border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)
