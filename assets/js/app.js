@@ -884,17 +884,18 @@ function renderHistList(txns) {
       + '<div class="h-right">'
         + '<div class="h-amt" style="color:' + (isBuy ? 'var(--blue)' : 'var(--green)') + '">'
           + (isBuy ? '−' : '+') + ' ' + fmt(total) + '</div>'
-        + '<button class="btn btn-danger h-del-btn" onclick="cancelTransaction(' + t.id + ',\'' + esc(t.card_name) + '\')" title="ยกเลิกรายการ">✕</button>'
+        + '<button class="btn btn-danger h-del-btn" onclick="cancelTransaction(' + t.id + ',\'' + esc(t.card_name) + '\',\'' + t.type + '\')" title="ยกเลิกรายการ">✕</button>'
       + '</div>'
     + '</div>';
   });
   listEl.innerHTML = html;
 }
 
-function cancelTransaction(id, name) {
+function cancelTransaction(id, name, type) {
+  var extra = type === 'sell' ? ' และจำนวนสต็อกจะถูกคืนกลับ' : '';
   showConfirm(
     'ยกเลิกรายการ',
-    '"' + name + '" จะถูกยกเลิก (ซ่อนจากประวัติและไม่นับในสถิติ)',
+    '"' + name + '" จะถูกยกเลิก' + extra,
     async function () {
       var res = await api('transactions/' + id, 'DELETE');
       if (res && res.success) {

@@ -170,7 +170,16 @@ function handleTransactions($method, $id) {
     }
 
     if ($method === 'DELETE' && $id) {
+        $t = fetchOne($db, "SELECT * FROM transactions WHERE id=$id AND deleted=0 LIMIT 1");
+        if (!$t) jsonResponse(['error' => 'ไม่พบรายการ'], 404);
+
         $db->query("UPDATE transactions SET deleted=1 WHERE id=$id");
+
+        // คืนสต็อกเมื่อยกเลิกรายการขาย
+        if ($t['type'] === 'sell') {
+            $db->query("UPDATE cards SET qty=qty+{$t['qty']}, deleted=0 WHERE id={$t['card_id']}");
+        }
+
         jsonResponse(['success' => true]);
     }
 
