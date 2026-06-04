@@ -27,9 +27,12 @@ $parts    = explode('/', $path);
 $resource = $parts[0] ?? '';
 $id       = isset($parts[1]) ? (int)$parts[1] : null;
 
-// Auto-migrate: add deleted column if not exists
+// Auto-migrate: add deleted column if not exists (MySQL 5.1 compatible)
 $db = getDB();
-$db->query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS deleted TINYINT(1) NOT NULL DEFAULT 0");
+$chk = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cards' AND COLUMN_NAME='deleted'");
+if ($chk && $chk->fetch_row()[0] == 0) {
+    $db->query("ALTER TABLE cards ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0");
+}
 
 switch ($resource) {
     case 'stats':        handleStats();                   break;
@@ -167,6 +170,7 @@ function handleTransactions($method, $id) {
         $cardId = (int)($d['card_id'] ?? 0);
         $price  = (float)($d['price'] ?? 0);
         $qty    = (int)($d['qty']     ?? 1);
+        $note   = $db->real_escape_string(trim($d['note'] ?? ''));
 
         if (!$cardId || !$price || $qty < 1) jsonResponse(['error' => 'ข้อมูลไม่ครบ'], 400);
 
@@ -177,7 +181,7 @@ function handleTransactions($method, $id) {
         $cardName = $db->real_escape_string($c['name']);
 
         $db->query("UPDATE cards SET qty=qty-$qty WHERE id=$cardId");
-        $db->query("INSERT INTO transactions (card_id,card_name,type,price,qty,cost_each,profit) VALUES ($cardId,'$cardName','sell',$price,$qty,{$c['cost']},$profit)");
+        $db->query("INSERT INTO transactions (card_id,card_name,type,price,qty,cost_each,profit,note) VALUES ($cardId,'$cardName','sell',$price,$qty,{$c['cost']},$profit,'$note')");
         jsonResponse(['success' => true, 'profit' => $profit]);
     }
 }
