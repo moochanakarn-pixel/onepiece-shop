@@ -27,6 +27,10 @@ $parts    = explode('/', $path);
 $resource = $parts[0] ?? '';
 $id       = isset($parts[1]) ? (int)$parts[1] : null;
 
+// Auto-migrate: add deleted column if not exists
+$db = getDB();
+$db->query("ALTER TABLE cards ADD COLUMN IF NOT EXISTS deleted TINYINT(1) NOT NULL DEFAULT 0");
+
 switch ($resource) {
     case 'stats':        handleStats();                   break;
     case 'cards':        handleCards($method, $id);       break;
