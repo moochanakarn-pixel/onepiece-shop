@@ -342,7 +342,7 @@ function renderBuy() {
     + '<div class="form-title">➕ บันทึกการซื้อการ์ด</div>'
     + '<div class="form-grid">'
       + '<div class="field form-full"><label>ชื่อการ์ด</label>'
-        + '<input id="b-name" type="text" placeholder="เช่น ロロノア・ゾロ หรือ Zoro" autocomplete="off"'
+        + '<input id="b-name" type="text" placeholder="เช่น Zoro หรือ โซโล่" autocomplete="off"'
         + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
       + '<div class="field"><label>เซต / ภาค</label>'
         + '<input id="b-set" type="text" placeholder="OP-01 ..."'
