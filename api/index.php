@@ -15,35 +15,47 @@ $resource = $parts[0] ?? '';
 $id       = isset($parts[1]) ? (int)$parts[1] : null;
 
 switch ($resource) {
-    case 'stats':        handleStats();                  break;
-    case 'cards':        handleCards($method, $id);      break;
+    case 'stats':        handleStats();                   break;
+    case 'cards':        handleCards($method, $id);       break;
     case 'transactions': handleTransactions($method, $id); break;
     default:             jsonResponse(['error' => 'Not found'], 404);
+}
+
+function fetchAll($db, $sql) {
+    $r = $db->query($sql);
+    if (!$r) jsonResponse(['error' => $db->error], 500);
+    $rows = [];
+    while ($row = $r->fetch_assoc()) $rows[] = $row;
+    return $rows;
+}
+
+function fetchOne($db, $sql) {
+    $r = $db->query($sql);
+    if (!$r) jsonResponse(['error' => $db->error], 500);
+    return $r->fetch_assoc();
+}
+
+function fetchVal($db, $sql) {
+    $r = $db->query($sql);
+    if (!$r) return 0;
+    $row = $r->fetch_row();
+    return $row ? $row[0] : 0;
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
 function handleStats() {
     $db = getDB();
-
-    $totalCost    = $db->query("SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='buy'")->fetch_row()[0];
-    $totalRevenue = $db->query("SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='sell'")->fetch_row()[0];
-    $totalProfit  = $db->query("SELECT COALESCE(SUM(profit),0)   FROM transactions WHERE type='sell'")->fetch_row()[0];
-    $totalBought  = $db->query("SELECT COALESCE(SUM(qty),0)      FROM transactions WHERE type='buy'")->fetch_row()[0];
-    $totalSold    = $db->query("SELECT COALESCE(SUM(qty),0)      FROM transactions WHERE type='sell'")->fetch_row()[0];
-    $stockValue   = $db->query("SELECT COALESCE(SUM(cost*qty),0) FROM cards WHERE qty>0")->fetch_row()[0];
-    $marketValue  = $db->query("SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE qty>0")->fetch_row()[0];
-    $stockCount   = $db->query("SELECT COALESCE(SUM(qty),0)      FROM cards WHERE qty>0")->fetch_row()[0];
-
     jsonResponse([
-        'total_cost'    => (float)$totalCost,
-        'total_revenue' => (float)$totalRevenue,
-        'total_profit'  => (float)$totalProfit,
-        'total_bought'  => (int)$totalBought,
-        'total_sold'    => (int)$totalSold,
-        'stock_value'   => (float)$stockValue,
-        'market_value'  => (float)$marketValue,
-        'stock_count'   => (int)$stockCount,
-        'unrealized'    => (float)$marketValue - (float)$stockValue,
+        'total_cost'    => (float)fetchVal($db, "SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='buy'"),
+        'total_revenue' => (float)fetchVal($db, "SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='sell'"),
+        'total_profit'  => (float)fetchVal($db, "SELECT COALESCE(SUM(profit),0)    FROM transactions WHERE type='sell'"),
+        'total_bought'  => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM transactions WHERE type='buy'"),
+        'total_sold'    => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM transactions WHERE type='sell'"),
+        'stock_value'   => (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE qty>0"),
+        'market_value'  => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE qty>0"),
+        'stock_count'   => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM cards WHERE qty>0"),
+        'unrealized'    => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE qty>0")
+                         - (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE qty>0"),
     ]);
 }
 
@@ -52,83 +64,72 @@ function handleCards($method, $id) {
     $db = getDB();
 
     if ($method === 'GET') {
-        $search = $_GET['q'] ?? '';
+        $search = $db->real_escape_string($_GET['q'] ?? '');
         if ($search) {
-            $like = '%' . $search . '%';
-            $stmt = $db->prepare("SELECT * FROM cards WHERE qty>0 AND (name LIKE ? OR card_no LIKE ?) ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC");
-            $stmt->bind_param('ss', $like, $like);
-            $stmt->execute();
-            jsonResponse($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $sql = "SELECT * FROM cards WHERE qty>0 AND (name LIKE '%$search%' OR card_no LIKE '%$search%') ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC";
         } else {
-            $r = $db->query("SELECT * FROM cards WHERE qty>0 ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC");
-            jsonResponse($r->fetch_all(MYSQLI_ASSOC));
+            $sql = "SELECT * FROM cards WHERE qty>0 ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC";
         }
+        jsonResponse(fetchAll($db, $sql));
     }
 
     if ($method === 'POST') {
         $d      = getInput();
-        $name   = trim($d['name']   ?? '');
-        $cardNo = trim($d['card_no'] ?? '');
-        $set    = trim($d['card_set'] ?? '');
-        $rarity = $d['rarity'] ?? '';
-        $cost   = (float)($d['cost']   ?? 0);
-        $qty    = (int)($d['qty']    ?? 1);
+        $name   = trim($d['name']         ?? '');
+        $cardNo = trim($d['card_no']       ?? '');
+        $set    = trim($d['card_set']      ?? '');
+        $rarity = $d['rarity']             ?? '';
+        $cost   = (float)($d['cost']       ?? 0);
+        $qty    = (int)($d['qty']          ?? 1);
         $market = (float)($d['market_price'] ?? 0);
 
         if (!$name)   jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
         if ($qty < 1) jsonResponse(['error' => 'จำนวนต้องมากกว่า 0'],  400);
 
-        $stmt = $db->prepare("SELECT id,qty,cost FROM cards WHERE name=? AND card_no=? AND card_set=? LIMIT 1");
-        $stmt->bind_param('sss', $name, $cardNo, $set);
-        $stmt->execute();
-        $existing = $stmt->get_result()->fetch_assoc();
+        $eName   = $db->real_escape_string($name);
+        $eNo     = $db->real_escape_string($cardNo);
+        $eSet    = $db->real_escape_string($set);
+        $eRarity = $db->real_escape_string($rarity);
+
+        $existing = fetchOne($db, "SELECT id,qty,cost FROM cards WHERE name='$eName' AND card_no='$eNo' AND card_set='$eSet' LIMIT 1");
 
         if ($existing) {
             $newQty  = $existing['qty'] + $qty;
-            $newCost = (($existing['cost'] * $existing['qty']) + ($cost * $qty)) / $newQty;
-            $stmt = $db->prepare("UPDATE cards SET qty=?,cost=?,market_price=IF(?>0,?,market_price) WHERE id=?");
-            $stmt->bind_param('idddi', $newQty, $newCost, $market, $market, $existing['id']);
-            $stmt->execute();
-            $cardId = $existing['id'];
+            $newCost = round((($existing['cost'] * $existing['qty']) + ($cost * $qty)) / $newQty, 2);
+            $mktSql  = $market > 0 ? "$market" : "market_price";
+            $db->query("UPDATE cards SET qty=$newQty,cost=$newCost,market_price=$mktSql WHERE id={$existing['id']}");
+            $cardId  = $existing['id'];
         } else {
-            $stmt = $db->prepare("INSERT INTO cards (name,card_no,card_set,rarity,cost,qty,market_price) VALUES (?,?,?,?,?,?,?)");
-            $stmt->bind_param('ssssdid', $name, $cardNo, $set, $rarity, $cost, $qty, $market);
-            $stmt->execute();
+            $db->query("INSERT INTO cards (name,card_no,card_set,rarity,cost,qty,market_price) VALUES ('$eName','$eNo','$eSet','$eRarity',$cost,$qty,$market)");
+            if ($db->error) jsonResponse(['error' => $db->error], 500);
             $cardId = $db->insert_id;
         }
 
-        $stmt = $db->prepare("INSERT INTO transactions (card_id,card_name,type,price,qty) VALUES (?,?,'buy',?,?)");
-        $stmt->bind_param('isdi', $cardId, $name, $cost, $qty);
-        $stmt->execute();
-
+        $db->query("INSERT INTO transactions (card_id,card_name,type,price,qty) VALUES ($cardId,'$eName','buy',$cost,$qty)");
         jsonResponse(['success' => true, 'card_id' => $cardId]);
     }
 
     if ($method === 'PUT' && $id) {
-        $d = getInput(); $fields = []; $params = []; $types = '';
+        $d = getInput(); $parts = [];
 
-        if (array_key_exists('name',         $d)) { $fields[]='name=?';         $params[]=trim($d['name']);           $types.='s'; }
-        if (array_key_exists('card_set',     $d)) { $fields[]='card_set=?';     $params[]=trim($d['card_set']);       $types.='s'; }
-        if (array_key_exists('card_no',      $d)) { $fields[]='card_no=?';      $params[]=trim($d['card_no']);        $types.='s'; }
-        if (array_key_exists('rarity',       $d)) { $fields[]='rarity=?';       $params[]=$d['rarity'];               $types.='s'; }
-        if (array_key_exists('cost',         $d)) { $fields[]='cost=?';         $params[]=(float)$d['cost'];          $types.='d'; }
-        if (array_key_exists('qty',          $d)) { $fields[]='qty=?';          $params[]=max(0,(int)$d['qty']);      $types.='i'; }
-        if (array_key_exists('market_price', $d)) { $fields[]='market_price=?'; $params[]=(float)$d['market_price'];  $types.='d'; }
+        if (array_key_exists('name',         $d)) $parts[] = "name='"         . $db->real_escape_string(trim($d['name']))    . "'";
+        if (array_key_exists('card_set',     $d)) $parts[] = "card_set='"     . $db->real_escape_string(trim($d['card_set'])) . "'";
+        if (array_key_exists('card_no',      $d)) $parts[] = "card_no='"      . $db->real_escape_string(trim($d['card_no']))  . "'";
+        if (array_key_exists('rarity',       $d)) $parts[] = "rarity='"       . $db->real_escape_string($d['rarity'])         . "'";
+        if (array_key_exists('cost',         $d)) $parts[] = "cost="          . (float)$d['cost'];
+        if (array_key_exists('qty',          $d)) $parts[] = "qty="           . max(0, (int)$d['qty']);
+        if (array_key_exists('market_price', $d)) $parts[] = "market_price="  . (float)$d['market_price'];
 
-        if (empty($fields)) jsonResponse(['success' => true]);
+        if (empty($parts)) jsonResponse(['success' => true]);
         if (isset($d['name']) && !trim($d['name'])) jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
 
-        $params[] = $id; $types .= 'i';
-        $stmt = $db->prepare('UPDATE cards SET '.implode(',', $fields).' WHERE id=?');
-        $stmt->bind_param($types, ...$params);
-        $stmt->execute();
+        $db->query("UPDATE cards SET " . implode(',', $parts) . " WHERE id=$id");
+        if ($db->error) jsonResponse(['error' => $db->error], 500);
         jsonResponse(['success' => true]);
     }
 
     if ($method === 'DELETE' && $id) {
-        $stmt = $db->prepare("DELETE FROM cards WHERE id=?");
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
+        $db->query("DELETE FROM cards WHERE id=$id");
         jsonResponse(['success' => true]);
     }
 }
@@ -139,42 +140,27 @@ function handleTransactions($method, $id) {
 
     if ($method === 'GET') {
         $limit = (int)($_GET['limit'] ?? 50);
-        $type  = $_GET['type'] ?? '';
-        if ($type) {
-            $stmt = $db->prepare("SELECT * FROM transactions WHERE type=? ORDER BY created_at DESC LIMIT ?");
-            $stmt->bind_param('si', $type, $limit);
-        } else {
-            $stmt = $db->prepare("SELECT * FROM transactions ORDER BY created_at DESC LIMIT ?");
-            $stmt->bind_param('i', $limit);
-        }
-        $stmt->execute();
-        jsonResponse($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+        $type  = $db->real_escape_string($_GET['type'] ?? '');
+        $where = $type ? "WHERE type='$type'" : '';
+        jsonResponse(fetchAll($db, "SELECT * FROM transactions $where ORDER BY created_at DESC LIMIT $limit"));
     }
 
     if ($method === 'POST') {
         $d      = getInput();
         $cardId = (int)($d['card_id'] ?? 0);
         $price  = (float)($d['price'] ?? 0);
-        $qty    = (int)($d['qty']   ?? 1);
+        $qty    = (int)($d['qty']     ?? 1);
 
         if (!$cardId || !$price || $qty < 1) jsonResponse(['error' => 'ข้อมูลไม่ครบ'], 400);
 
-        $stmt = $db->prepare("SELECT * FROM cards WHERE id=? AND qty>=? LIMIT 1");
-        $stmt->bind_param('ii', $cardId, $qty);
-        $stmt->execute();
-        $c = $stmt->get_result()->fetch_assoc();
+        $c = fetchOne($db, "SELECT * FROM cards WHERE id=$cardId AND qty>=$qty LIMIT 1");
         if (!$c) jsonResponse(['error' => 'ไม่พบการ์ดหรือสต็อกไม่พอ'], 400);
 
-        $profit = ($price - $c['cost']) * $qty;
+        $profit   = round(($price - $c['cost']) * $qty, 2);
+        $cardName = $db->real_escape_string($c['name']);
 
-        $stmt = $db->prepare("UPDATE cards SET qty=qty-? WHERE id=?");
-        $stmt->bind_param('ii', $qty, $cardId);
-        $stmt->execute();
-
-        $stmt = $db->prepare("INSERT INTO transactions (card_id,card_name,type,price,qty,cost_each,profit) VALUES (?,?,'sell',?,?,?,?)");
-        $stmt->bind_param('isdidd', $cardId, $c['name'], $price, $qty, $c['cost'], $profit);
-        $stmt->execute();
-
+        $db->query("UPDATE cards SET qty=qty-$qty WHERE id=$cardId");
+        $db->query("INSERT INTO transactions (card_id,card_name,type,price,qty,cost_each,profit) VALUES ($cardId,'$cardName','sell',$price,$qty,{$c['cost']},$profit)");
         jsonResponse(['success' => true, 'profit' => $profit]);
     }
 }
