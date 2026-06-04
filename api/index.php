@@ -26,7 +26,8 @@ $method   = $_GET['_method'] ?? $_BODY['_method'] ?? $_SERVER['REQUEST_METHOD'];
 $path     = trim($_GET['path'] ?? '', '/');
 $parts    = explode('/', $path);
 $resource = $parts[0] ?? '';
-$id       = isset($parts[1]) ? (int)$parts[1] : null;
+$id       = isset($parts[1]) && is_numeric($parts[1]) ? (int)$parts[1] : null;
+$sub      = (isset($parts[1]) && !is_numeric($parts[1])) ? $parts[1] : '';
 
 // Auto-migrate: add deleted column to cards and transactions (MySQL 5.1 compatible)
 $db = getDB();
@@ -39,10 +40,31 @@ if ($chk2 && $chk2->fetch_row()[0] == 0) {
     $db->query("ALTER TABLE transactions ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0");
 }
 
+// Auto-migrate: add image_url to cards
+$chk3 = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cards' AND COLUMN_NAME='image_url'");
+if ($chk3 && $chk3->fetch_row()[0] == 0) {
+    $db->query("ALTER TABLE cards ADD COLUMN image_url VARCHAR(500) NOT NULL DEFAULT ''");
+}
+// Auto-migrate: add customer_name to transactions
+$chk4 = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='transactions' AND COLUMN_NAME='customer_name'");
+if ($chk4 && $chk4->fetch_row()[0] == 0) {
+    $db->query("ALTER TABLE transactions ADD COLUMN customer_name VARCHAR(100) NOT NULL DEFAULT ''");
+}
+// Auto-migrate: add order_id to transactions
+$chk5 = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='transactions' AND COLUMN_NAME='order_id'");
+if ($chk5 && $chk5->fetch_row()[0] == 0) {
+    $db->query("ALTER TABLE transactions ADD COLUMN order_id VARCHAR(32) NOT NULL DEFAULT ''");
+}
+
 switch ($resource) {
-    case 'stats':        handleStats();                   break;
+    case 'stats':
+        if ($sub === 'chart')       handleStatsChart();
+        elseif ($sub === 'ranking') handleStatsRanking();
+        else                        handleStats();
+        break;
     case 'cards':        handleCards($method, $id);       break;
     case 'transactions': handleTransactions($method, $id); break;
+    case 'upload':       handleUpload();                   break;
     default:             jsonResponse(['error' => 'Not found'], 404);
 }
 
@@ -83,6 +105,48 @@ function handleStats() {
     ]);
 }
 
+function handleStatsChart() {
+    $db = getDB();
+    $period = $_GET['period'] ?? 'daily';
+    if ($period === 'monthly') {
+        $fmt   = '%Y-%m';
+        $where = "created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+    } else {
+        $fmt   = '%Y-%m-%d';
+        $where = "created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+    }
+    $sql = "SELECT DATE_FORMAT(created_at,'$fmt') as label,
+        COALESCE(SUM(CASE WHEN type='buy'  AND deleted=0 THEN price*qty ELSE 0 END),0) as cost,
+        COALESCE(SUM(CASE WHEN type='sell' AND deleted=0 THEN price*qty ELSE 0 END),0) as revenue,
+        COALESCE(SUM(CASE WHEN type='sell' AND deleted=0 THEN profit   ELSE 0 END),0) as profit
+        FROM transactions WHERE $where GROUP BY label ORDER BY label ASC";
+    jsonResponse(fetchAll($db, $sql));
+}
+
+function handleStatsRanking() {
+    $db = getDB();
+    $sql = "SELECT card_name,
+        COALESCE(SUM(profit),0) as total_profit,
+        COALESCE(SUM(qty),0) as total_qty
+        FROM transactions WHERE type='sell' AND deleted=0
+        GROUP BY card_name ORDER BY total_profit DESC LIMIT 10";
+    jsonResponse(fetchAll($db, $sql));
+}
+
+function handleUpload() {
+    if (empty($_FILES['image'])) jsonResponse(['error' => 'ไม่พบไฟล์'], 400);
+    $file = $_FILES['image'];
+    if ($file['error'] !== UPLOAD_ERR_OK) jsonResponse(['error' => 'อัปโหลดล้มเหลว'], 400);
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, ['jpg','jpeg','png','gif','webp'])) jsonResponse(['error' => 'รองรับเฉพาะ jpg/png/gif/webp'], 400);
+    if ($file['size'] > 5 * 1024 * 1024) jsonResponse(['error' => 'ไฟล์ต้องไม่เกิน 5MB'], 400);
+    $dir = __DIR__ . '/../assets/uploads/';
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $filename = uniqid('card_', true) . '.' . $ext;
+    if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) jsonResponse(['error' => 'บันทึกไฟล์ล้มเหลว'], 500);
+    jsonResponse(['url' => 'assets/uploads/' . $filename]);
+}
+
 // ─── CARDS ────────────────────────────────────────────────────────────────────
 function handleCards($method, $id) {
     $db = getDB();
@@ -106,6 +170,7 @@ function handleCards($method, $id) {
         $cost   = (float)($d['cost']       ?? 0);
         $qty    = (int)($d['qty']          ?? 1);
         $market = (float)($d['market_price'] ?? 0);
+        $image  = $db->real_escape_string(trim($d['image_url'] ?? ''));
 
         if (!$name)   jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
         if ($qty < 1) jsonResponse(['error' => 'จำนวนต้องมากกว่า 0'],  400);
@@ -121,10 +186,11 @@ function handleCards($method, $id) {
             $newQty  = $existing['qty'] + $qty;
             $newCost = round((($existing['cost'] * $existing['qty']) + ($cost * $qty)) / $newQty, 2);
             $mktSql  = $market > 0 ? "$market" : "market_price";
-            $db->query("UPDATE cards SET qty=$newQty,cost=$newCost,market_price=$mktSql WHERE id={$existing['id']}");
+            $imgSql  = $image ? ",image_url='$image'" : '';
+            $db->query("UPDATE cards SET qty=$newQty,cost=$newCost,market_price=$mktSql$imgSql WHERE id={$existing['id']}");
             $cardId  = $existing['id'];
         } else {
-            $db->query("INSERT INTO cards (name,card_no,card_set,rarity,cost,qty,market_price) VALUES ('$eName','$eNo','$eSet','$eRarity',$cost,$qty,$market)");
+            $db->query("INSERT INTO cards (name,card_no,card_set,rarity,cost,qty,market_price,image_url) VALUES ('$eName','$eNo','$eSet','$eRarity',$cost,$qty,$market,'$image')");
             if ($db->error) jsonResponse(['error' => $db->error], 500);
             $cardId = $db->insert_id;
         }
@@ -143,6 +209,7 @@ function handleCards($method, $id) {
         if (array_key_exists('cost',         $d)) $parts[] = "cost="          . (float)$d['cost'];
         if (array_key_exists('qty',          $d)) $parts[] = "qty="           . max(0, (int)$d['qty']);
         if (array_key_exists('market_price', $d)) $parts[] = "market_price="  . (float)$d['market_price'];
+        if (array_key_exists('image_url',    $d)) $parts[] = "image_url='"    . $db->real_escape_string(trim($d['image_url'])) . "'";
 
         if (empty($parts)) jsonResponse(['success' => true]);
         if (isset($d['name']) && !trim($d['name'])) jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
@@ -184,11 +251,13 @@ function handleTransactions($method, $id) {
     }
 
     if ($method === 'POST') {
-        $d      = getInput();
-        $cardId = (int)($d['card_id'] ?? 0);
-        $price  = (float)($d['price'] ?? 0);
-        $qty    = (int)($d['qty']     ?? 1);
-        $note   = $db->real_escape_string(trim($d['note'] ?? ''));
+        $d        = getInput();
+        $cardId   = (int)($d['card_id'] ?? 0);
+        $price    = (float)($d['price'] ?? 0);
+        $qty      = (int)($d['qty']     ?? 1);
+        $note     = $db->real_escape_string(trim($d['note'] ?? ''));
+        $customer = $db->real_escape_string(trim($d['customer_name'] ?? ''));
+        $orderId  = $db->real_escape_string(trim($d['order_id'] ?? ''));
 
         if (!$cardId || !$price || $qty < 1) jsonResponse(['error' => 'ข้อมูลไม่ครบ'], 400);
 
@@ -199,7 +268,7 @@ function handleTransactions($method, $id) {
         $cardName = $db->real_escape_string($c['name']);
 
         $db->query("UPDATE cards SET qty=qty-$qty WHERE id=$cardId");
-        $db->query("INSERT INTO transactions (card_id,card_name,type,price,qty,cost_each,profit,note) VALUES ($cardId,'$cardName','sell',$price,$qty,{$c['cost']},$profit,'$note')");
+        $db->query("INSERT INTO transactions (card_id,card_name,type,price,qty,cost_each,profit,note,customer_name,order_id) VALUES ($cardId,'$cardName','sell',$price,$qty,{$c['cost']},$profit,'$note','$customer','$orderId')");
         jsonResponse(['success' => true, 'profit' => $profit]);
     }
 }
