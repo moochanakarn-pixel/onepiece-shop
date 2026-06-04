@@ -1,5 +1,5 @@
-var CACHE = 'op-shop-v3';
-var STATIC = ['./', './index.html', './assets/css/app.css', './assets/js/app.js', './assets/img/icon.svg'];
+var CACHE = 'op-shop-v4';
+var STATIC = ['./', './index.html', './assets/css/app.css', './assets/img/icon.svg'];
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
