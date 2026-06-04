@@ -1,8 +1,8 @@
 const API = 'api/index.php?path=';
 let activeTab = 'dashboard';
-let _cards = {};   // card store — avoids escaping card data in onclick
+let _cards = {};
 
-// ─── UTILS ──────────────────────────────────────────────────────────────────
+// ─── UTILS
 const fmt = n => '฿' + Number(n || 0).toLocaleString('th-TH', {minimumFractionDigits:0, maximumFractionDigits:0});
 
 function c2pUrl(cardNo) {
@@ -41,7 +41,7 @@ function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
+// ─── TABS
 var TAB_KEYS = ['dashboard','stock','buy','sell','history'];
 
 function setTab(t) {
@@ -59,7 +59,7 @@ function setTab(t) {
   render();
 }
 
-// ─── CARD STORE HELPERS ──────────────────────────────────────────────────────────
+// ─── CARD STORE
 function saveCards(arr) {
   _cards = {};
   (arr || []).forEach(function(c) { _cards[c.id] = c; });
@@ -86,17 +86,15 @@ async function deleteCard(id) {
   render();
 }
 
-// ─── CARD ITEM HTML ───────────────────────────────────────────────────────────────
+// ─── CARD ITEM HTML
 function cardItemHtml(c) {
   var market = Number(c.market_price) || 0;
   var cost   = Number(c.cost) || 0;
   var marketLine = market > 0
     ? '<div class="card-market">📈 ราคาตลาด ' + fmt(market) + ' · กำไร ' + fmt(market - cost) + '/ใบ</div>'
     : '<div class="card-market" style="color:var(--hint)">ยังไม่มีราคาตลาด — กดเช็คราคาเพื่ออัปเดต</div>';
-
   var meta = [c.card_set, c.card_no, 'ทุน ' + fmt(cost)].filter(Boolean).join(' · ');
 
-  // onclick ใช้แค่ id — ไม่มี string data ใน attribute เลย
   return '<div class="card-item" id="ci-' + c.id + '">'
     + '<div class="card-body">'
       + '<div class="card-name">' + esc(c.name) + rarityBadge(c.rarity)
@@ -112,7 +110,7 @@ function cardItemHtml(c) {
   + '</div>';
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+// ─── DASHBOARD
 async function renderDashboard() {
   var el = document.getElementById('tab-dashboard');
   el.innerHTML = '<div class="empty">กำลังโหลด...</div>';
@@ -127,43 +125,41 @@ async function renderDashboard() {
 
   var html = '<div class="banner">'
     + '<p>ราคาตลาดอ้างอิงจาก <strong>card2price.com</strong> — กดเช็คราคาที่การ์ดเพื่อดูราคาล่าสุด แล้วอัปเดตได้เลย</p>'
-    + '<button class="btn btn-c2p" onclick="window.open(\'https://card2price.com/cards\',\'_blank\')">🔗 card2price ↗</button>'
+    + '<button class="btn btn-c2p" onclick="window.open(\'https://card2price.com/cards\',\'_blank\')">card2price ↗</button>'
     + '</div>';
 
   html += '<div class="stats-grid">';
-  var sg = [
-    ['ต้นทุนรวม', stats.total_cost, false],
-    ['รายรับรวม', stats.total_revenue, false],
-    ['กำไรขายแล้ว', stats.total_profit, true],
-    ['กำไรยังไม่รับ', unr, true],
-    ['มูลค่าสต็อก (ทุน)', stats.stock_value, false],
-    ['มูลค่าสต็อก (ตลาด)', stats.market_value, false],
-    ['ซื้อมาทั้งหมด', null, false, (stats.total_bought||0) + ' ใบ'],
-    ['สต็อกคงเหลือ', null, false, (stats.stock_count||0) + ' ใบ']
-  ];
-  sg.forEach(function(s) {
+  [
+    ['ต้นทุนรวม',           stats.total_cost,     false],
+    ['รายรับรวม',           stats.total_revenue,  false],
+    ['กำไรขายแล้ว',       stats.total_profit,   true],
+    ['กำไรยังไม่รับ',     unr,                  true],
+    ['มูลค่าสต็อก (ทุน)',  stats.stock_value,    false],
+    ['มูลค่าสต็อก (ตลาด)', stats.market_value,   false],
+    ['ซื้อมาทั้งหมด',       null, false, (stats.total_bought||0)+' ใบ'],
+    ['สต็อกคงเหลือ',       null, false, (stats.stock_count||0)+' ใบ']
+  ].forEach(function(s) {
     var val = s[3] !== undefined ? s[3] : fmt(s[1]);
     var cls = s[2] ? (Number(s[1]) >= 0 ? ' profit' : ' loss') : '';
     html += '<div class="stat"><div class="stat-label">' + s[0] + '</div><div class="stat-value' + cls + '">' + val + '</div></div>';
   });
   html += '</div>';
 
-  html += '<div class="section-hd"><span class="section-title">การ์ดมูลค่าสูงสุดในสต็อก</span></div>';
-  html += '<div class="card-list">';
+  html += '<div class="section-hd"><span class="section-title">การ์ดมูลค่าสูงสุดในสต็อก</span></div><div class="card-list">';
   if (topCards.length) {
     topCards.forEach(function(c) { html += cardItemHtml(c); });
   } else {
     html += '<div class="empty">ยังไม่มีสต็อก</div>';
   }
   html += '</div>';
-
   el.innerHTML = html;
 }
 
-// ─── STOCK ────────────────────────────────────────────────────────────────────
+// ─── STOCK
 async function renderStock() {
   var el = document.getElementById('tab-stock');
-  el.innerHTML = '<input class="search-box" placeholder="🔍 ค้นหาชื่อ หรือ เลขการ์ด..." oninput="searchCards(this.value")>'
+  // — บรรทัดที่เคย bug: oninput="searchCards(this.value")> — เครื่องหมาย " อยู่ผิดที่
+  el.innerHTML = '<input class="search-box" placeholder="🔍 ค้นหาชื่อ หรือ เลขการ์ด..." oninput="searchCards(this.value)">'
     + '<div class="section-hd"><span class="section-title" id="stock-count">กำลังโหลด...</span></div>'
     + '<div class="card-list" id="stock-list"><div class="empty">กำลังโหลด...</div></div>';
   loadStock('');
@@ -186,17 +182,16 @@ function searchCards(q) {
   searchTimer = setTimeout(function() { loadStock(q); }, 300);
 }
 
-// ─── BUY ──────────────────────────────────────────────────────────────────────
+// ─── BUY
 function renderBuy() {
   document.getElementById('tab-buy').innerHTML =
     '<div class="form-section">'
     + '<div class="form-title">➕ บันทึกการซื้อการ์ด</div>'
     + '<div class="form-grid">'
-      + '<div class="field form-full"><label>ชื่อการ์ด (ญี่ปุ่น/ไทย)</label><input id="b-name" type="text" placeholder="เช่น ロロノア・ゾロ หรือ Zoro" autocomplete="off"></div>'
+      + '<div class="field form-full"><label>ชื่อการ์ด</label><input id="b-name" type="text" placeholder="เช่น ロロノア・ゾロ หรือ Zoro" autocomplete="off"></div>'
       + '<div class="field"><label>เซต / ภาค</label><input id="b-set" type="text" placeholder="OP-01, ST-01 ..."></div>'
       + '<div class="field"><label>เลขการ์ด</label><input id="b-no" type="text" placeholder="OP01-001"></div>'
-      + '<div class="field"><label>ความหายาก</label>'
-        + '<select id="b-rarity"><option value="">—</option><option>C</option><option>UC</option><option>R</option><option>SR</option><option>SEC</option><option>L</option></select></div>'
+      + '<div class="field"><label>ความหายาก</label><select id="b-rarity"><option value="">—</option><option>C</option><option>UC</option><option>R</option><option>SR</option><option>SEC</option><option>L</option></select></div>'
       + '<div class="field"><label>ต้นทุนต่อใบ (฿)</label><input id="b-cost" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
       + '<div class="field"><label>จำนวน (ใบ)</label><input id="b-qty" type="number" inputmode="numeric" min="1" value="1"></div>'
       + '<div class="field-hint form-full"><label>📌 ราคาตลาด card2price.com (฿) — ไม่บังคับ</label>'
@@ -204,8 +199,7 @@ function renderBuy() {
         + '<button class="btn btn-c2p" onclick="openC2PBuy()">เช็คก่อน ↗</button></div></div>'
     + '</div>'
     + '<div class="form-actions"><button class="btn btn-primary btn-full" onclick="submitBuy()">✓ บันทึก</button></div>'
-    + '</div>'
-    + '<div id="buy-msg"></div>';
+    + '</div><div id="buy-msg"></div>';
 }
 
 function openC2PBuy() {
@@ -217,8 +211,8 @@ async function submitBuy() {
   var set    = document.getElementById('b-set').value.trim();
   var cardNo = document.getElementById('b-no').value.trim();
   var rarity = document.getElementById('b-rarity').value;
-  var cost   = parseFloat(document.getElementById('b-cost').value) || 0;
-  var qty    = parseInt(document.getElementById('b-qty').value)    || 1;
+  var cost   = parseFloat(document.getElementById('b-cost').value)   || 0;
+  var qty    = parseInt(document.getElementById('b-qty').value)      || 1;
   var market = parseFloat(document.getElementById('b-market').value) || 0;
 
   if (!name) { showMsg('buy-msg', 'กรุณาใส่ชื่อการ์ด', false); return; }
@@ -233,7 +227,7 @@ async function submitBuy() {
   }
 }
 
-// ─── SELL ─────────────────────────────────────────────────────────────────────
+// ─── SELL
 async function renderSell() {
   var el = document.getElementById('tab-sell');
   el.innerHTML = '<div class="empty">กำลังโหลด...</div>';
@@ -250,10 +244,9 @@ async function renderSell() {
   var html = '<div class="section-hd"><span class="section-title">เลือกการ์ดที่ต้องการขาย</span></div><div id="sell-list">';
   cards.forEach(function(c) {
     var market = Number(c.market_price) || 0;
-    var marketTxt = market > 0 ? ' · ตลาด ' + fmt(market) : '';
     html += '<div class="sell-card">'
       + '<div class="sell-name">' + esc(c.name) + rarityBadge(c.rarity) + '</div>'
-      + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + ' ใบ' + marketTxt + '</div>'
+      + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + ' ใบ' + (market > 0 ? ' · ตลาด ' + fmt(market) : '') + '</div>'
       + '<div class="sell-row-inputs">'
         + '<input class="sell-input" type="number" inputmode="decimal" placeholder="ราคาขาย (฿)" id="sp-' + c.id + '" value="' + (market > 0 ? market : '') + '">'
         + '<input class="sell-input" type="number" inputmode="numeric" placeholder="จำนวน" value="1" min="1" max="' + c.qty + '" id="sq-' + c.id + '">'
@@ -271,9 +264,7 @@ async function renderSell() {
 async function submitSell(id) {
   var price = parseFloat(document.getElementById('sp-' + id).value) || 0;
   var qty   = parseInt(document.getElementById('sq-' + id).value)   || 1;
-
   if (!price) { showMsg('sell-msg', 'กรุณาใส่ราคาขาย', false); return; }
-
   var res = await api('transactions', 'POST', {card_id:id, price:price, qty:qty});
   if (res && res.success) {
     var p = Number(res.profit) || 0;
@@ -284,19 +275,16 @@ async function submitSell(id) {
   }
 }
 
-// ─── HISTORY ──────────────────────────────────────────────────────────────────
+// ─── HISTORY
 async function renderHistory() {
   var el = document.getElementById('tab-history');
   el.innerHTML = '<div class="empty">กำลังโหลด...</div>';
-
   var txns = await api('transactions?limit=100');
   txns = Array.isArray(txns) ? txns : [];
-
   if (!txns.length) {
     el.innerHTML = '<div class="section-hd"><span class="section-title">ประวัติธุรกรรมล่าสุด</span></div><div class="empty">ยังไม่มีธุรกรรม</div>';
     return;
   }
-
   var html = '<div class="section-hd"><span class="section-title">ประวัติธุรกรรมล่าสุด</span></div>';
   txns.forEach(function(t) {
     var isBuy = t.type === 'buy';
@@ -319,7 +307,7 @@ async function renderHistory() {
   el.innerHTML = html;
 }
 
-// ─── RENDER ───────────────────────────────────────────────────────────────────
+// ─── RENDER
 function render() {
   if      (activeTab === 'dashboard') { renderDashboard(); }
   else if (activeTab === 'stock')     { renderStock();     }
