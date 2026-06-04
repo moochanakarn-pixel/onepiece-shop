@@ -1,4 +1,17 @@
 <?php
+set_error_handler(function($no, $str, $file, $line) {
+    @http_response_code(500);
+    @header('Content-Type: application/json');
+    echo json_encode(['error' => $str, 'file' => basename($file), 'line' => $line]);
+    exit;
+});
+set_exception_handler(function($e) {
+    @http_response_code(500);
+    @header('Content-Type: application/json');
+    echo json_encode(['error' => $e->getMessage()]);
+    exit;
+});
+
 require_once __DIR__ . '/../config.php';
 
 header('Content-Type: application/json; charset=utf-8');
