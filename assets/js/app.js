@@ -15,6 +15,8 @@ var _cart = [];
 var _stockSort = 'price_desc';
 var _chartPeriod = 'daily';
 var _chartInstance = null;
+var _bulkMode = false;
+var _bulkRows = [];
 
 // ─── UTILS
 const fmt = n => '฿' + Number(n || 0).toLocaleString('th-TH', {minimumFractionDigits:0, maximumFractionDigits:0});
@@ -696,8 +698,20 @@ function useChip(word, btn) {
 
 // ─── BUY
 function renderBuy() {
+  var modeBar =
+    '<div class="mode-toggle">'
+    + '<button class="mtog-btn' + (_bulkMode ? '' : ' active') + '" onclick="setBuyMode(false)">🃏 ใบเดียว</button>'
+    + '<button class="mtog-btn' + (_bulkMode ? ' active' : '') + '" onclick="setBuyMode(true)">📦 หลายใบ</button>'
+    + '</div>';
+
+  if (_bulkMode) {
+    renderBuyBulk(modeBar);
+    return;
+  }
+
   document.getElementById('tab-buy').innerHTML =
     '<div class="form-section">'
+    + modeBar
     + '<div class="form-title">➕ บันทึกการซื้อการ์ด</div>'
 
     // card scan
@@ -851,6 +865,127 @@ async function submitBuy() {
     showMsg('buy-msg', (res && res.error) || 'เกิดข้อผิดพลาด', false);
   }
   unlockBtn('buy', btn, '✓ บันทึก');
+}
+
+// ─── BULK BUY
+function setBuyMode(bulk) {
+  _bulkMode = bulk;
+  if (bulk && _bulkRows.length === 0) {
+    _bulkRows = [{name:'',rarity:'',cost:'',qty:'1'},{name:'',rarity:'',cost:'',qty:'1'},{name:'',rarity:'',cost:'',qty:'1'}];
+  }
+  renderBuy();
+}
+
+function renderBuyBulk(modeBar) {
+  var rarityOpts = ['','C','UC','R','SR','SEC','L'].map(function(r){
+    return '<option value="' + r + '">' + (r||'—') + '</option>';
+  }).join('');
+
+  var rows = _bulkRows.map(function(row, i) {
+    return '<tr class="bulk-row" id="brow-' + i + '">'
+      + '<td><input class="bulk-name" type="text" placeholder="ชื่อการ์ด" value="' + escHtml(row.name) + '" oninput="bulkUpdate(' + i + ',\'name\',this.value)"></td>'
+      + '<td><select class="bulk-rarity" onchange="bulkUpdate(' + i + ',\'rarity\',this.value)">'
+        + rarityOpts.replace('value="' + row.rarity + '"', 'value="' + row.rarity + '" selected')
+      + '</select></td>'
+      + '<td><input class="bulk-cost" type="number" inputmode="decimal" min="0" placeholder="฿" value="' + escHtml(row.cost) + '" oninput="bulkUpdate(' + i + ',\'cost\',this.value)"></td>'
+      + '<td><input class="bulk-qty" type="number" inputmode="numeric" min="1" placeholder="1" value="' + escHtml(row.qty) + '" oninput="bulkUpdate(' + i + ',\'qty\',this.value)"></td>'
+      + '<td><button class="btn-row-del" onclick="bulkRemoveRow(' + i + ')" title="ลบแถว">✕</button></td>'
+    + '</tr>';
+  }).join('');
+
+  var filled = _bulkRows.filter(function(r){ return r.name.trim(); }).length;
+
+  document.getElementById('tab-buy').innerHTML =
+    '<div class="form-section">'
+    + modeBar
+    + '<div class="form-title">📦 ซื้อหลายใบพร้อมกัน</div>'
+    + '<div class="bulk-table-wrap">'
+      + '<table class="bulk-table">'
+        + '<thead><tr><th>ชื่อการ์ด</th><th>หายาก</th><th>ต้นทุน/ใบ</th><th>จำนวน</th><th></th></tr></thead>'
+        + '<tbody id="bulk-tbody">' + rows + '</tbody>'
+      + '</table>'
+    + '</div>'
+    + '<div class="bulk-actions">'
+      + '<button class="btn btn-outline" onclick="bulkAddRow()">+ เพิ่มแถว</button>'
+      + '<button id="bulk-submit-btn" class="btn btn-primary" onclick="submitBulkBuy()"'
+        + (filled ? '' : ' disabled')
+        + '>✓ บันทึกทั้งหมด' + (filled ? ' (' + filled + ' รายการ)' : '') + '</button>'
+    + '</div>'
+    + '<div id="bulk-msg"></div>'
+    + '</div>';
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function bulkUpdate(i, field, val) {
+  if (_bulkRows[i]) _bulkRows[i][field] = val;
+  // update button count live
+  var filled = _bulkRows.filter(function(r){ return r.name.trim(); }).length;
+  var btn = document.getElementById('bulk-submit-btn');
+  if (btn) {
+    btn.disabled = filled === 0;
+    btn.textContent = '✓ บันทึกทั้งหมด' + (filled ? ' (' + filled + ' รายการ)' : '');
+  }
+}
+
+function bulkAddRow() {
+  _bulkRows.push({name:'',rarity:'',cost:'',qty:'1'});
+  var modeBar =
+    '<div class="mode-toggle">'
+    + '<button class="mtog-btn" onclick="setBuyMode(false)">🃏 ใบเดียว</button>'
+    + '<button class="mtog-btn active" onclick="setBuyMode(true)">📦 หลายใบ</button>'
+    + '</div>';
+  renderBuyBulk(modeBar);
+  // focus last name input
+  setTimeout(function(){
+    var rows = document.querySelectorAll('.bulk-name');
+    if (rows.length) rows[rows.length-1].focus();
+  }, 50);
+}
+
+function bulkRemoveRow(i) {
+  _bulkRows.splice(i, 1);
+  if (_bulkRows.length === 0) _bulkRows.push({name:'',rarity:'',cost:'',qty:'1'});
+  var modeBar =
+    '<div class="mode-toggle">'
+    + '<button class="mtog-btn" onclick="setBuyMode(false)">🃏 ใบเดียว</button>'
+    + '<button class="mtog-btn active" onclick="setBuyMode(true)">📦 หลายใบ</button>'
+    + '</div>';
+  renderBuyBulk(modeBar);
+}
+
+async function submitBulkBuy() {
+  var toSubmit = _bulkRows.filter(function(r){ return r.name.trim(); });
+  if (!toSubmit.length) return;
+
+  var btn = document.getElementById('bulk-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+
+  var ok = 0, fail = [];
+  for (var i = 0; i < toSubmit.length; i++) {
+    var row = toSubmit[i];
+    var res = await api('cards', 'POST', {
+      name: row.name.trim(),
+      rarity: row.rarity,
+      cost: parseFloat(row.cost) || 0,
+      qty: parseInt(row.qty) || 1
+    });
+    if (res && res.success) { ok++; }
+    else { fail.push('"' + row.name + '": ' + ((res && res.error) || 'ผิดพลาด')); }
+  }
+
+  if (fail.length === 0) {
+    toast('✓ บันทึกสำเร็จ ' + ok + ' รายการ');
+    _bulkRows = [{name:'',rarity:'',cost:'',qty:'1'},{name:'',rarity:'',cost:'',qty:'1'},{name:'',rarity:'',cost:'',qty:'1'}];
+    renderBuy();
+  } else {
+    var msgEl = document.getElementById('bulk-msg');
+    var summary = (ok ? '✓ สำเร็จ ' + ok + ' รายการ' : '') + (ok && fail.length ? ', ' : '') + (fail.length ? '✗ ล้มเหลว: ' + fail.join('; ') : '');
+    if (msgEl) msgEl.innerHTML = '<div class="msg msg-' + (ok ? 'warn' : 'err') + '">' + summary + '</div>';
+    if (btn) { btn.disabled = false; btn.textContent = '✓ บันทึกทั้งหมด'; }
+  }
 }
 
 // ─── SELL
