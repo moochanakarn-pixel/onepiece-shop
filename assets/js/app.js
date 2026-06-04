@@ -652,6 +652,13 @@ async function identifyCard(input) {
       var setNum  = m[2].padStart(2, '0');
       var cardNum = m[3].padStart(3, '0');
       var cardNo  = setCode + setNum + '-' + cardNum;
+      // auto-open extra section so b-no / b-set fields exist
+      if (!_buyShowExtra) {
+        var s = _saveBuyFields();
+        _buyShowExtra = true;
+        renderBuy();
+        _restoreBuyFields(s);
+      }
       var noEl  = document.getElementById('b-no');
       var setEl = document.getElementById('b-set');
       if (noEl)  noEl.value  = cardNo;
@@ -803,8 +810,26 @@ function renderBuy() {
   }, 100);
 }
 
-function toggleBuyExtra() { _buyShowExtra = !_buyShowExtra; renderBuy(); document.getElementById('b-name') && document.getElementById('b-name').focus && null; }
-function toggleBuyMedia()  { _buyShowMedia  = !_buyShowMedia;  renderBuy(); }
+function _saveBuyFields() {
+  function v(id) { var el = document.getElementById(id); return el ? el.value : null; }
+  return {name: v('b-name'), rarity: v('b-rarity'), cost: v('b-cost'), qty: v('b-qty')};
+}
+function _restoreBuyFields(s) {
+  function set(id, val) { if (val === null) return; var el = document.getElementById(id); if (el) el.value = val; }
+  set('b-name', s.name); set('b-rarity', s.rarity); set('b-cost', s.cost); set('b-qty', s.qty);
+}
+function toggleBuyExtra() {
+  var s = _saveBuyFields();
+  _buyShowExtra = !_buyShowExtra;
+  renderBuy();
+  _restoreBuyFields(s);
+}
+function toggleBuyMedia() {
+  var s = _saveBuyFields();
+  _buyShowMedia = !_buyShowMedia;
+  renderBuy();
+  _restoreBuyFields(s);
+}
 
 function openC2PBuy() {
   var el = document.getElementById('b-no');
@@ -878,7 +903,7 @@ async function submitBuy() {
   if (res && res.success) {
     toast('✓ บันทึก "' + name + '" ' + qty + ' ใบ ต้นทุน ' + fmt(cost));
     ['b-name', 'b-set', 'b-no', 'b-cost', 'b-market'].forEach(function (id) {
-      document.getElementById(id).value = '';
+      var el = document.getElementById(id); if (el) el.value = '';
     });
     document.getElementById('b-qty').value = '1';
     document.getElementById('b-rarity').value = '';
@@ -905,15 +930,21 @@ function renderBuyBulk(modeBar) {
   }).join('');
 
   var rows = _bulkRows.map(function(row, i) {
-    return '<tr class="bulk-row" id="brow-' + i + '">'
-      + '<td><input class="bulk-name" type="text" placeholder="ชื่อการ์ด" value="' + escHtml(row.name) + '" oninput="bulkUpdate(' + i + ',\'name\',this.value)"></td>'
-      + '<td><select class="bulk-rarity" onchange="bulkUpdate(' + i + ',\'rarity\',this.value)">'
-        + rarityOpts.replace('value="' + row.rarity + '"', 'value="' + row.rarity + '" selected')
-      + '</select></td>'
-      + '<td><input class="bulk-cost" type="number" inputmode="decimal" min="0" placeholder="฿" value="' + escHtml(row.cost) + '" oninput="bulkUpdate(' + i + ',\'cost\',this.value)"></td>'
-      + '<td><input class="bulk-qty" type="number" inputmode="numeric" min="1" placeholder="1" value="' + escHtml(row.qty) + '" oninput="bulkUpdate(' + i + ',\'qty\',this.value)"></td>'
-      + '<td><button class="btn-row-del" onclick="bulkRemoveRow(' + i + ')" title="ลบแถว">✕</button></td>'
-    + '</tr>';
+    return '<div class="bulk-card" id="brow-' + i + '">'
+      + '<div class="bulk-card-top">'
+        + '<input class="bulk-name" type="text" placeholder="ชื่อการ์ด" value="' + escHtml(row.name) + '" oninput="bulkUpdate(' + i + ',\'name\',this.value)">'
+        + '<select class="bulk-rarity" onchange="bulkUpdate(' + i + ',\'rarity\',this.value)">'
+          + rarityOpts.replace('value="' + row.rarity + '"', 'value="' + row.rarity + '" selected')
+        + '</select>'
+        + '<button class="btn-row-del" onclick="bulkRemoveRow(' + i + ')" title="ลบ">✕</button>'
+      + '</div>'
+      + '<div class="bulk-card-bottom">'
+        + '<div class="bulk-field"><label>ต้นทุน/ใบ (฿)</label>'
+          + '<input class="bulk-cost" type="number" inputmode="decimal" min="0" placeholder="0" value="' + escHtml(row.cost) + '" oninput="bulkUpdate(' + i + ',\'cost\',this.value)"></div>'
+        + '<div class="bulk-field"><label>จำนวน</label>'
+          + '<input class="bulk-qty" type="number" inputmode="numeric" min="1" placeholder="1" value="' + escHtml(row.qty) + '" oninput="bulkUpdate(' + i + ',\'qty\',this.value)"></div>'
+      + '</div>'
+    + '</div>';
   }).join('');
 
   var filled = _bulkRows.filter(function(r){ return r.name.trim(); }).length;
@@ -921,13 +952,7 @@ function renderBuyBulk(modeBar) {
   document.getElementById('tab-buy').innerHTML =
     '<div class="form-section">'
     + modeBar
-    + '<div class="form-title">📦 ซื้อหลายใบพร้อมกัน</div>'
-    + '<div class="bulk-table-wrap">'
-      + '<table class="bulk-table">'
-        + '<thead><tr><th>ชื่อการ์ด</th><th>หายาก</th><th>ต้นทุน/ใบ</th><th>จำนวน</th><th></th></tr></thead>'
-        + '<tbody id="bulk-tbody">' + rows + '</tbody>'
-      + '</table>'
-    + '</div>'
+    + '<div class="bulk-cards" id="bulk-tbody">' + rows + '</div>'
     + '<div class="bulk-actions">'
       + '<button class="btn btn-outline" onclick="bulkAddRow()">+ เพิ่มแถว</button>'
       + '<button id="bulk-submit-btn" class="btn btn-primary" onclick="submitBulkBuy()"'
@@ -1006,7 +1031,7 @@ async function submitBulkBuy() {
   } else {
     var msgEl = document.getElementById('bulk-msg');
     var summary = (ok ? '✓ สำเร็จ ' + ok + ' รายการ' : '') + (ok && fail.length ? ', ' : '') + (fail.length ? '✗ ล้มเหลว: ' + fail.join('; ') : '');
-    if (msgEl) msgEl.innerHTML = '<div class="msg msg-' + (ok ? 'warn' : 'err') + '">' + summary + '</div>';
+    if (msgEl) msgEl.innerHTML = '<div class="msg msg-' + (ok ? 'ok' : 'err') + '">' + summary + '</div>';
     if (btn) { btn.disabled = false; btn.textContent = '✓ บันทึกทั้งหมด'; }
   }
 }

@@ -463,9 +463,6 @@ body{
   .btn{height:36px;font-size:13px;border-radius:var(--radius)}
   .btn-icon{width:34px;height:34px;font-size:16px}
   .modal-input{height:38px;font-size:14px}
-  .bulk-table th,.bulk-table td{padding:6px 4px}
-  .bulk-name{min-width:0}
-  .bulk-cost,.bulk-qty{max-width:72px}
 }
 
 /* ── Mode Toggle (single / bulk buy) ───────────────────────────────── */
@@ -477,24 +474,22 @@ body{
 }
 .mtog-btn.active{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
 
-/* ── Bulk Buy Table ─────────────────────────────────────────────────── */
-.bulk-table-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
-.bulk-table{width:100%;border-collapse:collapse;font-size:14px}
-.bulk-table th{
-  text-align:left;padding:8px 8px 6px;color:var(--muted);font-size:12px;
-  font-weight:600;text-transform:uppercase;letter-spacing:.04em;
-  border-bottom:1px solid var(--border);white-space:nowrap
+/* ── Bulk Buy Cards ─────────────────────────────────────────────────── */
+.bulk-cards{display:flex;flex-direction:column;gap:8px}
+.bulk-card{
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--radius);padding:10px 12px;
 }
-.bulk-table td{padding:6px 6px;vertical-align:middle}
-.bulk-row:not(:last-child) td{border-bottom:1px solid var(--border)}
-.bulk-name{width:100%;min-width:110px}
-.bulk-rarity{width:70px}
-.bulk-cost{width:90px}
-.bulk-qty{width:64px}
+.bulk-card-top{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.bulk-card-bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bulk-field{display:flex;flex-direction:column;gap:4px}
+.bulk-field label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.bulk-name{flex:1;min-width:0}
+.bulk-rarity{width:76px;flex-shrink:0}
 .bulk-name,.bulk-rarity,.bulk-cost,.bulk-qty{
-  height:40px;padding:0 10px;border:1.5px solid var(--border2);
-  border-radius:var(--radius);font-size:14px;color:var(--text);background:var(--surface);
-  transition:border-color .15s,box-shadow .15s;outline:none
+  height:42px;padding:0 10px;border:1.5px solid var(--border2);
+  border-radius:var(--radius);font-size:15px;color:var(--text);background:var(--surface);
+  transition:border-color .15s,box-shadow .15s;outline:none;font-family:inherit;width:100%
 }
 .bulk-name:focus,.bulk-rarity:focus,.bulk-cost:focus,.bulk-qty:focus{
   border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)
