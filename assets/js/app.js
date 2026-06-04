@@ -340,19 +340,6 @@ function checkPrice(id) {
   window.open(c2pUrl(c.card_no), '_blank');
 }
 
-function promptMarket(id) {
-  var c = _cards[id];
-  if (!c) return;
-  showPromptModal(
-    'อัปเดตราคาตลาด "' + c.name + '"',
-    c.market_price || '',
-    async function (val) {
-      if (val === '' || val === null) return;
-      await api('cards/' + id, 'PUT', {market_price: parseFloat(val) || 0});
-      render();
-    }
-  );
-}
 
 function deleteCard(id) {
   var c = _cards[id] || {};
