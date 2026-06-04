@@ -23,8 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
 $_BODY    = json_decode(file_get_contents('php://input'), true) ?: [];
 $method   = $_GET['_method'] ?? $_BODY['_method'] ?? $_SERVER['REQUEST_METHOD'];
-
-function getInput() { global $_BODY; return $_BODY; }
 $path     = trim($_GET['path'] ?? '', '/');
 $parts    = explode('/', $path);
 $resource = $parts[0] ?? '';
