@@ -132,6 +132,8 @@ body{
 .sell-profit-pos{color:var(--green)}
 .sell-profit-neg{color:var(--red)}
 .sell-profit-empty{color:transparent}
+.sell-note{width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text);margin-bottom:6px}
+.sell-note:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:transparent}
 .sell-row-inputs{display:grid;grid-template-columns:1fr 70px;gap:6px;margin-bottom:6px}
 .sell-input{
   height:44px;padding:0 10px;

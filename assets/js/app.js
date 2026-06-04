@@ -737,6 +737,9 @@ function renderSellList(cards) {
           + ' oninput="updateSellProfit(' + c.id + ')"'
           + ' onkeydown="if(event.key===\'Enter\')submitSell(' + c.id + ')">'
       + '</div>'
+      + '<input class="sell-note" type="text" placeholder="หมายเหตุ (ไม่บังคับ)"'
+        + ' id="sn-' + c.id + '"'
+        + ' onkeydown="if(event.key===\'Enter\')submitSell(' + c.id + ')">'
       + '<div class="sell-action-row">'
         + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
         + '<button class="btn btn-primary" id="sell-btn-' + c.id + '" style="flex:1"'
@@ -778,6 +781,7 @@ async function submitSell(id) {
 
   var price = parseFloat(document.getElementById('sp-' + id).value) || 0;
   var qty   = parseInt(document.getElementById('sq-' + id).value)   || 1;
+  var note  = ((document.getElementById('sn-' + id) || {}).value || '').trim();
 
   if (!price) {
     showMsg('sell-msg', 'กรุณาใส่ราคาขาย', false);
@@ -785,7 +789,7 @@ async function submitSell(id) {
     return;
   }
 
-  var res = await api('transactions', 'POST', {card_id: id, price: price, qty: qty});
+  var res = await api('transactions', 'POST', {card_id: id, price: price, qty: qty, note: note});
   if (res && res.success) {
     var p = Number(res.profit) || 0;
     toast('✓ ขาย ' + qty + ' ใบ ที่ ' + fmt(price)
@@ -888,7 +892,8 @@ function renderHistList(txns) {
       + '<div class="h-body">'
         + '<div class="h-name">' + esc(t.card_name) + '</div>'
         + '<div class="h-detail">' + (isBuy ? 'ซื้อเข้า' : 'ขายออก') + ' ' + t.qty
-          + ' ใบ · ' + fmt(t.price) + '/ใบ' + profitStr + ' · ' + dateStr + '</div>'
+          + ' ใบ · ' + fmt(t.price) + '/ใบ' + profitStr + ' · ' + dateStr
+          + (t.note ? ' · 📝 ' + esc(t.note) : '') + '</div>'
       + '</div>'
       + '<div class="h-amt" style="color:' + (isBuy ? 'var(--blue)' : 'var(--green)') + '">'
         + (isBuy ? '−' : '+') + ' ' + fmt(total) + '</div>'
