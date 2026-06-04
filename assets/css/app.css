@@ -7,6 +7,7 @@
   --blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#B5D4F4;
   --amber:#854F0B;--amber-bg:#FAEEDA;
   --red:#993C1D;--red-bg:#FAECE7;
+  --red-btn:#993C1D;
   --purple:#534AB7;--purple-bg:#EEEDFE;
   --radius:8px;--radius-lg:12px;
   --nav-h:60px;
@@ -88,9 +89,16 @@ body{
 .btn:active{transform:scale(.95)}
 .btn:disabled{opacity:.45;pointer-events:none}
 .btn-primary{background:var(--text);color:#fff;border-color:transparent}
+.btn-danger-fill{background:var(--red-btn);color:#fff;border-color:transparent}
 .btn-c2p{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bd);font-weight:500}
 .btn-danger{color:var(--red);border-color:#F5C4B3}
 .btn-full{width:100%;height:48px;font-size:15px;font-weight:600}
+.btn-icon{
+  width:36px;height:36px;padding:0;border-radius:50%;font-size:18px;flex-shrink:0;
+  border-color:var(--border);
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinning{animation:spin .5s linear}
 
 /* ── Forms ───────────────────────────────────────────────────────────── */
 .form-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;margin-bottom:1rem}
@@ -119,7 +127,11 @@ body{
   border-radius:var(--radius-lg);padding:12px;margin-bottom:8px;
 }
 .sell-name{font-size:14px;font-weight:500;margin-bottom:3px}
-.sell-meta{font-size:12px;color:var(--muted);margin-bottom:10px}
+.sell-meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+.sell-profit{font-size:12px;font-weight:500;min-height:16px;margin-bottom:8px;transition:color .15s}
+.sell-profit-pos{color:var(--green)}
+.sell-profit-neg{color:var(--red)}
+.sell-profit-empty{color:transparent}
 .sell-row-inputs{display:grid;grid-template-columns:1fr 70px;gap:6px;margin-bottom:6px}
 .sell-input{
   height:44px;padding:0 10px;
@@ -144,6 +156,37 @@ body{
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.toast-ok{background:var(--green)}
 #toast.toast-err{background:var(--red)}
+
+/* ── Custom modal ──────────────────────────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:300;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.modal-box{
+  background:var(--surface);border-radius:var(--radius-lg);
+  padding:20px;width:100%;max-width:320px;
+  box-shadow:0 8px 32px rgba(0,0,0,.2);
+  animation:modal-in .15s ease-out;
+}
+@keyframes modal-in{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:8px}
+.modal-msg{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.modal-msg:empty{display:none}
+.modal-input{
+  display:block;width:100%;height:44px;padding:0 12px;
+  border:1px solid var(--border2);border-radius:var(--radius);
+  font-size:16px;font-family:inherit;background:#fff;
+  margin-bottom:14px;
+  touch-action:manipulation;
+}
+.modal-input:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:transparent}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.modal-btns .btn{height:40px;min-width:80px}
+
+/* ── Inline messages ─────────────────────────────────────────────────── */
+.msg{font-size:13px;padding:8px 12px;border-radius:var(--radius);margin-top:8px}
+.msg-ok{background:var(--green-bg);color:var(--green)}
+.msg-err{background:var(--red-bg);color:var(--red)}
 
 /* ── History ──────────────────────────────────────────────────────────── */
 .history-item{display:flex;align-items:start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
@@ -209,4 +252,6 @@ body{
   .sell-row-inputs{grid-template-columns:1fr 90px}
   .sell-input{height:36px;font-size:13px}
   .btn{height:36px;font-size:12px}
+  .btn-icon{width:32px;height:32px;font-size:16px}
+  .modal-input{height:36px;font-size:13px}
 }

@@ -43,7 +43,7 @@ function esc(str) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ─── TOAST  (floating message — ไม่ต้องเลื่อนหา)
+// ─── TOAST  (floating pill, auto-dismiss)
 function toast(text, ok) {
   var el = document.getElementById('toast');
   if (!el) return;
@@ -55,7 +55,7 @@ function toast(text, ok) {
   }, ok !== false ? 3000 : 4000);
 }
 
-// inline msg (ยังคงไว้สำหรับ form validation)
+// inline msg (form validation errors)
 function showMsg(elId, text, ok) {
   ok = ok !== false;
   var el = document.getElementById(elId);
@@ -82,6 +82,69 @@ function unlockBtn(key, btn, origText) {
   if (btn) { btn.disabled = false; if (origText) btn.textContent = origText; }
 }
 
+// ─── REFRESH BUTTON
+function refreshTab() {
+  var btn = document.getElementById('refresh-btn');
+  if (btn) {
+    btn.classList.add('spinning');
+    setTimeout(function () { btn.classList.remove('spinning'); }, 500);
+  }
+  _renderToken++;
+  render();
+}
+
+// ─── CUSTOM MODAL  (replaces confirm() and prompt())
+var _modalCb = null;
+var _modalIsPrompt = false;
+
+function showConfirm(title, msg, onOk) {
+  var overlay = document.getElementById('modal-overlay');
+  var inp = document.getElementById('modal-input');
+  var okBtn = document.getElementById('modal-ok-btn');
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').textContent = msg;
+  inp.style.display = 'none';
+  _modalIsPrompt = false;
+  _modalCb = onOk;
+  okBtn.textContent = 'ลบ';
+  okBtn.className = 'btn btn-danger-fill';
+  overlay.style.display = 'flex';
+}
+
+function showPromptModal(title, def, onOk) {
+  var overlay = document.getElementById('modal-overlay');
+  var inp = document.getElementById('modal-input');
+  var okBtn = document.getElementById('modal-ok-btn');
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').textContent = '';
+  inp.value = def != null ? def : '';
+  inp.style.display = 'block';
+  _modalIsPrompt = true;
+  _modalCb = onOk;
+  okBtn.textContent = 'บันทึก';
+  okBtn.className = 'btn btn-primary';
+  overlay.style.display = 'flex';
+  setTimeout(function () { inp.focus(); inp.select(); }, 80);
+}
+
+function modalOk() {
+  var overlay = document.getElementById('modal-overlay');
+  var val = _modalIsPrompt ? document.getElementById('modal-input').value : true;
+  overlay.style.display = 'none';
+  var cb = _modalCb;
+  _modalCb = null;
+  if (cb) cb(val);
+}
+
+function modalCancel() {
+  document.getElementById('modal-overlay').style.display = 'none';
+  _modalCb = null;
+}
+
+function modalBgClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) modalCancel();
+}
+
 // ─── TABS
 var TAB_KEYS = ['dashboard', 'stock', 'buy', 'sell', 'history'];
 
@@ -101,6 +164,26 @@ function setTab(t) {
   render();
 }
 
+// ─── SWIPE NAVIGATION  (left/right swipe = prev/next tab)
+(function () {
+  var sx = 0, sy = 0, disabled = false;
+  document.addEventListener('touchstart', function (e) {
+    var tag = (e.target || {}).tagName || '';
+    disabled = /^(INPUT|SELECT|TEXTAREA)$/.test(tag);
+    if (!disabled) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+  }, {passive: true});
+  document.addEventListener('touchend', function (e) {
+    if (disabled) return;
+    var dx = e.changedTouches[0].clientX - sx;
+    var dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) < 70) return;                   // too short
+    if (Math.abs(dy) > Math.abs(dx) * 0.75) return;  // mostly vertical scroll
+    var idx = TAB_KEYS.indexOf(activeTab);
+    if (dx < 0 && idx < TAB_KEYS.length - 1) setTab(TAB_KEYS[idx + 1]);
+    else if (dx > 0 && idx > 0)              setTab(TAB_KEYS[idx - 1]);
+  }, {passive: true});
+})();
+
 // ─── CARD STORE
 function saveCards(arr) {
   _cards = {};
@@ -112,22 +195,32 @@ function checkPrice(id) {
   window.open(c2pUrl(c.card_no), '_blank');
 }
 
-async function promptMarket(id) {
+function promptMarket(id) {
   var c = _cards[id];
   if (!c) return;
-  var val = prompt('ราคาตลาด "' + c.name + '" จาก card2price (฿)', c.market_price || '');
-  if (val === null) return;
-  await api('cards/' + id, 'PUT', {market_price: parseFloat(val) || 0});
-  render();
+  showPromptModal(
+    'อัปเดตราคาตลาด "' + c.name + '"',
+    c.market_price || '',
+    async function (val) {
+      if (val === '' || val === null) return;
+      await api('cards/' + id, 'PUT', {market_price: parseFloat(val) || 0});
+      render();
+    }
+  );
 }
 
-async function deleteCard(id) {
+function deleteCard(id) {
   var c = _cards[id] || {};
-  if (!confirm('ลบการ์ด "' + c.name + '" ออกจากสต็อก?')) return;
-  if (!lockBtn('del' + id)) return;
-  await api('cards/' + id, 'DELETE');
-  unlockBtn('del' + id);
-  render();
+  showConfirm(
+    'ลบการ์ดออกจากสต็อก',
+    '"' + c.name + '" จะถูกลบถาวร',
+    async function () {
+      if (!lockBtn('del' + id)) return;
+      await api('cards/' + id, 'DELETE');
+      unlockBtn('del' + id);
+      render();
+    }
+  );
 }
 
 // ─── CARD ITEM HTML
@@ -160,7 +253,7 @@ async function renderDashboard() {
   el.innerHTML = '<div class="empty loading-pulse">กำลังโหลด...</div>';
 
   var results = await Promise.all([api('stats'), api('cards')]);
-  if (token !== _renderToken) return;  // tab changed while loading
+  if (token !== _renderToken) return;
 
   var stats    = results[0] || {};
   var cards    = Array.isArray(results[1]) ? results[1] : [];
@@ -249,20 +342,28 @@ function renderBuy() {
     + '<div class="form-title">➕ บันทึกการซื้อการ์ด</div>'
     + '<div class="form-grid">'
       + '<div class="field form-full"><label>ชื่อการ์ด</label>'
-        + '<input id="b-name" type="text" placeholder="เช่น ロロノア・ゾロ หรือ Zoro" autocomplete="off"></div>'
-      + '<div class="field"><label>เซต / ภาค</label><input id="b-set" type="text" placeholder="OP-01 ..."></div>'
-      + '<div class="field"><label>เลขการ์ด</label><input id="b-no" type="text" placeholder="OP01-001"></div>'
+        + '<input id="b-name" type="text" placeholder="เช่น ロロノア・ゾロ หรือ Zoro" autocomplete="off"'
+        + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
+      + '<div class="field"><label>เซต / ภาค</label>'
+        + '<input id="b-set" type="text" placeholder="OP-01 ..."'
+        + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
+      + '<div class="field"><label>เลขการ์ด</label>'
+        + '<input id="b-no" type="text" placeholder="OP01-001"'
+        + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
       + '<div class="field"><label>ความหายาก</label>'
         + '<select id="b-rarity"><option value="">—</option><option>C</option><option>UC</option>'
         + '<option>R</option><option>SR</option><option>SEC</option><option>L</option></select></div>'
       + '<div class="field"><label>ต้นทุนต่อใบ (฿)</label>'
-        + '<input id="b-cost" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
+        + '<input id="b-cost" type="number" inputmode="decimal" min="0" placeholder="0"'
+        + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
       + '<div class="field"><label>จำนวน (ใบ)</label>'
-        + '<input id="b-qty" type="number" inputmode="numeric" min="1" value="1"></div>'
+        + '<input id="b-qty" type="number" inputmode="numeric" min="1" value="1"'
+        + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
       + '<div class="field-hint form-full">'
         + '<label>📌 ราคาตลาด card2price (฿) — ไม่บังคับ</label>'
         + '<div class="inner">'
-          + '<input id="b-market" type="number" inputmode="decimal" min="0" placeholder="ใส่หลังเช็คราคาแล้ว">'
+          + '<input id="b-market" type="number" inputmode="decimal" min="0" placeholder="ใส่หลังเช็คราคาแล้ว"'
+          + ' onkeydown="if(event.key===\'Enter\')submitBuy()">'
           + '<button class="btn btn-c2p" onclick="openC2PBuy()">เช็ค ↗</button></div></div>'
     + '</div>'
     + '<div class="form-actions">'
@@ -359,15 +460,23 @@ function renderSellList(cards) {
   var html = '';
   cards.forEach(function (c) {
     var market = Number(c.market_price) || 0;
+    var defPrice = market > 0 ? market : '';
+    var initProfit = defPrice ? _profitText(Number(c.cost), market, 1) : '';
+    var initCls   = defPrice ? (market >= Number(c.cost) ? 'sell-profit-pos' : 'sell-profit-neg') : 'sell-profit-empty';
     html += '<div class="sell-card">'
       + '<div class="sell-name">' + esc(c.name) + rarityBadge(c.rarity) + '</div>'
       + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + ' ใบ'
         + (market > 0 ? ' · ตลาด ' + fmt(market) : '') + '</div>'
+      + '<div id="sp-profit-' + c.id + '" class="sell-profit ' + initCls + '">' + initProfit + '</div>'
       + '<div class="sell-row-inputs">'
         + '<input class="sell-input" type="number" inputmode="decimal" placeholder="ราคาขาย (฿)"'
-          + ' id="sp-' + c.id + '" value="' + (market > 0 ? market : '') + '">'
+          + ' id="sp-' + c.id + '" value="' + (defPrice || '') + '"'
+          + ' oninput="updateSellProfit(' + c.id + ')"'
+          + ' onkeydown="if(event.key===\'Enter\')submitSell(' + c.id + ')">'
         + '<input class="sell-input" type="number" inputmode="numeric" placeholder="จำนวน"'
-          + ' value="1" min="1" max="' + c.qty + '" id="sq-' + c.id + '">'
+          + ' value="1" min="1" max="' + c.qty + '" id="sq-' + c.id + '"'
+          + ' oninput="updateSellProfit(' + c.id + ')"'
+          + ' onkeydown="if(event.key===\'Enter\')submitSell(' + c.id + ')">'
       + '</div>'
       + '<div class="sell-action-row">'
         + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
@@ -377,6 +486,31 @@ function renderSellList(cards) {
     + '</div>';
   });
   el.innerHTML = html;
+}
+
+function _profitText(cost, price, qty) {
+  var p = (price - cost) * qty;
+  return (p >= 0 ? '📈 กำไร ' : '📉 ขาดทุน ') + fmt(Math.abs(p))
+    + (qty > 1 ? ' (' + qty + ' ใบ)' : '');
+}
+
+function updateSellProfit(id) {
+  var c = _cards[id];
+  if (!c) return;
+  var priceEl  = document.getElementById('sp-' + id);
+  var qtyEl    = document.getElementById('sq-' + id);
+  var profitEl = document.getElementById('sp-profit-' + id);
+  if (!priceEl || !qtyEl || !profitEl) return;
+  var price = parseFloat(priceEl.value) || 0;
+  var qty   = parseInt(qtyEl.value)    || 1;
+  if (!price) {
+    profitEl.className   = 'sell-profit sell-profit-empty';
+    profitEl.textContent = '';
+    return;
+  }
+  var profit = (price - Number(c.cost)) * qty;
+  profitEl.className   = 'sell-profit ' + (profit >= 0 ? 'sell-profit-pos' : 'sell-profit-neg');
+  profitEl.textContent = _profitText(Number(c.cost), price, qty);
 }
 
 async function submitSell(id) {
