@@ -174,8 +174,9 @@ body{
 /* ── Custom modal ──────────────────────────────────────────────────────── */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:300;
-  display:flex;align-items:center;justify-content:center;padding:20px;
+  display:none;align-items:center;justify-content:center;padding:20px;
 }
+.modal-overlay.open{display:flex}
 .modal-box{
   background:var(--surface);border-radius:var(--radius-lg);
   padding:20px;width:100%;max-width:320px;

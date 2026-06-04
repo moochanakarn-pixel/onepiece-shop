@@ -32,11 +32,13 @@ async function api(path, method, body) {
     var opts = {method: method, headers: {'Content-Type': 'application/json'}};
     if (body) opts.body = JSON.stringify(body);
     var res = await fetch(API + path, opts);
-    if (!res.ok) return {};
-    return await res.json();
+    var data;
+    try { data = await res.json(); } catch(e) { data = {}; }
+    if (!res.ok) return {error: data.error || 'เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ' + res.status + ')'};
+    return data;
   } catch (e) {
     console.warn('API error:', path, e.message);
-    return {};
+    return {error: 'เชื่อมต่อ API ไม่ได้ — ตรวจสอบ config.php และ database'};
   }
 }
 
@@ -95,39 +97,42 @@ function refreshTab() {
 var _modalCb = null;
 var _modalIsPrompt = false;
 
-function showConfirm(title, msg, onOk) {
+function _modalOpen() {
   var overlay = document.getElementById('modal-overlay');
-  var okBtn   = document.getElementById('modal-ok-btn');
+  var formEl  = document.getElementById('modal-form');
+  var inp     = document.getElementById('modal-input');
   var box     = document.getElementById('modal-box');
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-msg').textContent   = msg;
-  document.getElementById('modal-input').style.display = 'none';
-  document.getElementById('modal-form').style.display  = 'none';
-  box.classList.remove('wide');
+  if (formEl) formEl.style.display = 'none';
+  if (inp)    inp.style.display    = 'none';
+  if (box)    box.classList.remove('wide');
+  if (overlay) overlay.classList.add('open');
+}
+
+function showConfirm(title, msg, onOk) {
+  var okBtn = document.getElementById('modal-ok-btn');
+  var t = document.getElementById('modal-title');
+  var m = document.getElementById('modal-msg');
+  if (t) t.textContent = title;
+  if (m) m.textContent = msg;
+  _modalOpen();
   _modalIsPrompt = false;
   _modalCb = onOk;
-  okBtn.textContent = 'ลบ';
-  okBtn.className   = 'btn btn-danger-fill';
-  overlay.style.display = 'flex';
+  if (okBtn) { okBtn.textContent = 'ลบ'; okBtn.className = 'btn btn-danger-fill'; }
 }
 
 function showPromptModal(title, def, onOk) {
-  var overlay = document.getElementById('modal-overlay');
-  var inp     = document.getElementById('modal-input');
-  var okBtn   = document.getElementById('modal-ok-btn');
-  var box     = document.getElementById('modal-box');
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-msg').textContent   = '';
-  document.getElementById('modal-form').style.display = 'none';
-  inp.value = def != null ? def : '';
-  inp.style.display = 'block';
-  box.classList.remove('wide');
+  var okBtn = document.getElementById('modal-ok-btn');
+  var t     = document.getElementById('modal-title');
+  var m     = document.getElementById('modal-msg');
+  var inp   = document.getElementById('modal-input');
+  if (t) t.textContent = title;
+  if (m) m.textContent = '';
+  _modalOpen();
+  if (inp) { inp.value = def != null ? def : ''; inp.style.display = 'block'; }
   _modalIsPrompt = true;
   _modalCb = onOk;
-  okBtn.textContent = 'บันทึก';
-  okBtn.className   = 'btn btn-primary';
-  overlay.style.display = 'flex';
-  setTimeout(function () { inp.focus(); inp.select(); }, 80);
+  if (okBtn) { okBtn.textContent = 'บันทึก'; okBtn.className = 'btn btn-primary'; }
+  setTimeout(function () { if (inp) { inp.focus(); inp.select(); } }, 80);
 }
 
 // ─── EDIT CARD MODAL
@@ -166,7 +171,10 @@ function showEditCard(id) {
       + '<input id="ef-market" type="number" inputmode="decimal" value="' + (c.market_price || 0) + '"></div>'
     + '</div>';
   formEl.style.display = 'block';
-  box.classList.add('wide');
+  var overlay2 = document.getElementById('modal-overlay');
+  var box2     = document.getElementById('modal-box');
+  if (box2)     box2.classList.add('wide');
+  if (overlay2) overlay2.classList.add('open');
 
   _modalIsPrompt = false;
   _modalCb = function () {
@@ -194,34 +202,32 @@ function showEditCard(id) {
     });
   };
 
-  okBtn.textContent = 'บันทึก';
-  okBtn.className   = 'btn btn-primary';
-  overlay.style.display = 'flex';
+  if (okBtn) { okBtn.textContent = 'บันทึก'; okBtn.className = 'btn btn-primary'; }
   setTimeout(function () {
     var n = document.getElementById('ef-name');
     if (n) { n.focus(); n.select(); }
   }, 80);
 }
 
-function modalOk() {
-  var overlay = document.getElementById('modal-overlay');
-  var formEl  = document.getElementById('modal-form');
-  var val = _modalIsPrompt ? document.getElementById('modal-input').value : true;
-  overlay.style.display = 'none';
-  if (formEl) formEl.style.display = 'none';
-  var cb = _modalCb;
-  _modalCb = null;
-  if (cb) cb(val);
-  if (formEl) formEl.innerHTML = '';
-}
-
-function modalCancel() {
+function _modalClose() {
   var overlay = document.getElementById('modal-overlay');
   var formEl  = document.getElementById('modal-form');
   var box     = document.getElementById('modal-box');
-  overlay.style.display = 'none';
-  if (formEl) { formEl.style.display = 'none'; formEl.innerHTML = ''; }
-  if (box) box.classList.remove('wide');
+  if (overlay) overlay.classList.remove('open');
+  if (formEl)  { formEl.style.display = 'none'; formEl.innerHTML = ''; }
+  if (box)     box.classList.remove('wide');
+}
+
+function modalOk() {
+  var val = _modalIsPrompt ? (document.getElementById('modal-input') || {value:''}).value : true;
+  _modalClose();
+  var cb = _modalCb;
+  _modalCb = null;
+  if (cb) cb(val);
+}
+
+function modalCancel() {
+  _modalClose();
   _modalCb = null;
 }
 
@@ -474,7 +480,18 @@ function searchCards(q) {
 var _tWorker = null;
 
 async function _getTWorker() {
-  if (!_tWorker) _tWorker = await Tesseract.createWorker('eng');
+  if (!_tWorker) {
+    if (typeof Tesseract === 'undefined') {
+      await new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    _tWorker = await Tesseract.createWorker('eng');
+  }
   return _tWorker;
 }
 
@@ -486,17 +503,13 @@ async function identifyCard(input) {
   var imgEl   = document.getElementById('cs-thumb');
   if (imgEl)   imgEl.src = URL.createObjectURL(file);
   if (prevRow) prevRow.style.display = 'flex';
-  _csStatus('กำลังอ่านตัวอักษรบนการ์ด...', '');
+  _csStatus('กำลังโหลด OCR...', '');
   var chipsEl = document.getElementById('cs-chips');
   if (chipsEl) chipsEl.innerHTML = '';
 
-  if (typeof Tesseract === 'undefined') {
-    _csStatus('โหลด OCR ไม่สำเร็จ — กรอกชื่อเองได้เลย', 'var(--red)');
-    return;
-  }
-
   try {
     var worker = await _getTWorker();
+    _csStatus('กำลังอ่านตัวอักษรบนการ์ด...', '');
     var result = await worker.recognize(file);
     var text   = result.data.text || '';
 
