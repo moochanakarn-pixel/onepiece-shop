@@ -113,7 +113,7 @@ function _modalOpen() {
   if (formEl) formEl.style.display = 'none';
   if (inp)    inp.style.display    = 'none';
   if (box)    box.classList.remove('wide');
-  if (overlay) overlay.classList.add('open');
+  if (overlay) { overlay.style.display = 'flex'; overlay.classList.add('open'); }
 }
 
 function showConfirm(title, msg, onOk) {
@@ -221,7 +221,7 @@ function _modalClose() {
   var overlay = document.getElementById('modal-overlay');
   var formEl  = document.getElementById('modal-form');
   var box     = document.getElementById('modal-box');
-  if (overlay) overlay.classList.remove('open');
+  if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('open'); }
   if (formEl)  { formEl.style.display = 'none'; formEl.innerHTML = ''; }
   if (box)     box.classList.remove('wide');
 }
