@@ -1,0 +1,18 @@
+Options -Indexes
+
+# API routing
+RewriteEngine On
+RewriteRule ^api/(.*)$ api/index.php?path=$1 [QSA,L]
+
+# Security headers (ดีกับ Cloudflare)
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# กัน direct access config.php
+<Files "config.php">
+  Order allow,deny
+  Deny from all
+</Files>
