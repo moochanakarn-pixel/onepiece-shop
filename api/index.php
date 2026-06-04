@@ -79,9 +79,9 @@ function handleCards($method, $id) {
     if ($method === 'GET') {
         $search = $db->real_escape_string($_GET['q'] ?? '');
         if ($search) {
-            $sql = "SELECT * FROM cards WHERE qty>0 AND (name LIKE '%$search%' OR card_no LIKE '%$search%') ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC";
+            $sql = "SELECT * FROM cards WHERE deleted=0 AND qty>0 AND (name LIKE '%$search%' OR card_no LIKE '%$search%') ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC";
         } else {
-            $sql = "SELECT * FROM cards WHERE qty>0 ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC";
+            $sql = "SELECT * FROM cards WHERE deleted=0 AND qty>0 ORDER BY (CASE WHEN market_price>0 THEN market_price ELSE cost END) DESC";
         }
         jsonResponse(fetchAll($db, $sql));
     }
@@ -104,7 +104,7 @@ function handleCards($method, $id) {
         $eSet    = $db->real_escape_string($set);
         $eRarity = $db->real_escape_string($rarity);
 
-        $existing = fetchOne($db, "SELECT id,qty,cost FROM cards WHERE name='$eName' AND card_no='$eNo' AND card_set='$eSet' LIMIT 1");
+        $existing = fetchOne($db, "SELECT id,qty,cost FROM cards WHERE deleted=0 AND name='$eName' AND card_no='$eNo' AND card_set='$eSet' LIMIT 1");
 
         if ($existing) {
             $newQty  = $existing['qty'] + $qty;
@@ -142,7 +142,7 @@ function handleCards($method, $id) {
     }
 
     if ($method === 'DELETE' && $id) {
-        $db->query("DELETE FROM cards WHERE id=$id");
+        $db->query("UPDATE cards SET deleted=1 WHERE id=$id");
         jsonResponse(['success' => true]);
     }
 }
@@ -166,7 +166,7 @@ function handleTransactions($method, $id) {
 
         if (!$cardId || !$price || $qty < 1) jsonResponse(['error' => 'ข้อมูลไม่ครบ'], 400);
 
-        $c = fetchOne($db, "SELECT * FROM cards WHERE id=$cardId AND qty>=$qty LIMIT 1");
+        $c = fetchOne($db, "SELECT * FROM cards WHERE deleted=0 AND id=$cardId AND qty>=$qty LIMIT 1");
         if (!$c) jsonResponse(['error' => 'ไม่พบการ์ดหรือสต็อกไม่พอ'], 400);
 
         $profit   = round(($price - $c['cost']) * $qty, 2);
