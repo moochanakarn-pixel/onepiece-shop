@@ -881,11 +881,30 @@ function renderHistList(txns) {
           + ' ใบ · ' + fmt(t.price) + '/ใบ' + profitStr + ' · ' + dateStr
           + (t.note ? ' · 📝 ' + esc(t.note) : '') + '</div>'
       + '</div>'
-      + '<div class="h-amt" style="color:' + (isBuy ? 'var(--blue)' : 'var(--green)') + '">'
-        + (isBuy ? '−' : '+') + ' ' + fmt(total) + '</div>'
+      + '<div class="h-right">'
+        + '<div class="h-amt" style="color:' + (isBuy ? 'var(--blue)' : 'var(--green)') + '">'
+          + (isBuy ? '−' : '+') + ' ' + fmt(total) + '</div>'
+        + '<button class="btn btn-danger h-del-btn" onclick="cancelTransaction(' + t.id + ',\'' + esc(t.card_name) + '\')" title="ยกเลิกรายการ">✕</button>'
+      + '</div>'
     + '</div>';
   });
   listEl.innerHTML = html;
+}
+
+function cancelTransaction(id, name) {
+  showConfirm(
+    'ยกเลิกรายการ',
+    '"' + name + '" จะถูกยกเลิก (ซ่อนจากประวัติและไม่นับในสถิติ)',
+    async function () {
+      var res = await api('transactions/' + id, 'DELETE');
+      if (res && res.success) {
+        toast('✓ ยกเลิกรายการแล้ว');
+        renderHistory();
+      } else {
+        toast((res && res.error) || 'เกิดข้อผิดพลาด', false);
+      }
+    }
+  );
 }
 
 // ─── RENDER

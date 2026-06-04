@@ -256,7 +256,9 @@ body{
 .h-body{flex:1;min-width:0}
 .h-name{font-size:14px;font-weight:600}
 .h-detail{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.5}
+.h-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
 .h-amt{font-size:14px;font-weight:600;white-space:nowrap}
+.h-del-btn{height:32px;padding:0 10px;font-size:12px}
 
 /* ── Misc ─────────────────────────────────────────────────────────────── */
 .empty{text-align:center;padding:3rem 1rem;color:var(--hint);font-size:13px}

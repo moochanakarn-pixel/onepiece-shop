@@ -28,11 +28,15 @@ $parts    = explode('/', $path);
 $resource = $parts[0] ?? '';
 $id       = isset($parts[1]) ? (int)$parts[1] : null;
 
-// Auto-migrate: add deleted column if not exists (MySQL 5.1 compatible)
+// Auto-migrate: add deleted column to cards and transactions (MySQL 5.1 compatible)
 $db = getDB();
 $chk = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cards' AND COLUMN_NAME='deleted'");
 if ($chk && $chk->fetch_row()[0] == 0) {
     $db->query("ALTER TABLE cards ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0");
+}
+$chk2 = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='transactions' AND COLUMN_NAME='deleted'");
+if ($chk2 && $chk2->fetch_row()[0] == 0) {
+    $db->query("ALTER TABLE transactions ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0");
 }
 
 switch ($resource) {
@@ -67,10 +71,10 @@ function fetchVal($db, $sql) {
 function handleStats() {
     $db = getDB();
     jsonResponse([
-        'total_cost'    => (float)fetchVal($db, "SELECT COALESCE(SUM(t.price*t.qty),0) FROM transactions t INNER JOIN cards c ON t.card_id=c.id WHERE t.type='buy' AND c.deleted=0"),
-        'total_revenue' => (float)fetchVal($db, "SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='sell'"),
-        'total_profit'  => (float)fetchVal($db, "SELECT COALESCE(SUM(profit),0)    FROM transactions WHERE type='sell'"),
-        'total_bought'  => (int)  fetchVal($db, "SELECT COALESCE(SUM(t.qty),0)     FROM transactions t INNER JOIN cards c ON t.card_id=c.id WHERE t.type='buy' AND c.deleted=0"),
+        'total_cost'    => (float)fetchVal($db, "SELECT COALESCE(SUM(t.price*t.qty),0) FROM transactions t INNER JOIN cards c ON t.card_id=c.id WHERE t.type='buy' AND t.deleted=0 AND c.deleted=0"),
+        'total_revenue' => (float)fetchVal($db, "SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='sell' AND deleted=0"),
+        'total_profit'  => (float)fetchVal($db, "SELECT COALESCE(SUM(profit),0)    FROM transactions WHERE type='sell' AND deleted=0"),
+        'total_bought'  => (int)  fetchVal($db, "SELECT COALESCE(SUM(t.qty),0)     FROM transactions t INNER JOIN cards c ON t.card_id=c.id WHERE t.type='buy' AND t.deleted=0 AND c.deleted=0"),
         'stock_value'   => (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE deleted=0 AND qty>0"),
         'market_value'  => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE deleted=0 AND qty>0"),
         'stock_count'   => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM cards WHERE deleted=0 AND qty>0"),
@@ -161,8 +165,13 @@ function handleTransactions($method, $id) {
     if ($method === 'GET') {
         $limit = (int)($_GET['limit'] ?? 50);
         $type  = $db->real_escape_string($_GET['type'] ?? '');
-        $where = $type ? "WHERE type='$type'" : '';
+        $where = $type ? "WHERE deleted=0 AND type='$type'" : 'WHERE deleted=0';
         jsonResponse(fetchAll($db, "SELECT * FROM transactions $where ORDER BY created_at DESC LIMIT $limit"));
+    }
+
+    if ($method === 'DELETE' && $id) {
+        $db->query("UPDATE transactions SET deleted=1 WHERE id=$id");
+        jsonResponse(['success' => true]);
     }
 
     if ($method === 'POST') {
