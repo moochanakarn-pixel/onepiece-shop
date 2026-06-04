@@ -183,6 +183,35 @@ body{
 .modal-btns{display:flex;gap:8px;justify-content:flex-end}
 .modal-btns .btn{height:40px;min-width:80px}
 
+/* ── Card scan section ───────────────────────────────────────────────── */
+.card-scan{
+  background:var(--blue-bg);border:1.5px dashed var(--blue-bd);
+  border-radius:var(--radius-lg);padding:12px;margin-bottom:12px;
+}
+.cs-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.cs-icon{font-size:22px;flex-shrink:0}
+.cs-texts{flex:1}
+.cs-title{font-size:13px;font-weight:600;color:var(--blue);display:block}
+.cs-sub{font-size:11px;color:var(--muted)}
+.cs-ctrl{display:flex;align-items:center;gap:8px}
+.cs-status{font-size:11px;color:var(--muted);flex:1;line-height:1.4}
+.cs-prev{display:flex;gap:10px;align-items:flex-start;margin-top:10px}
+.cs-thumb{
+  width:58px;height:82px;object-fit:cover;
+  border-radius:6px;border:1px solid var(--border2);flex-shrink:0;
+}
+.id-chips{display:flex;flex-wrap:wrap;gap:5px;flex:1;align-content:flex-start}
+.id-chip{
+  padding:0 10px;height:28px;font-size:12px;
+  background:var(--surface);border:1px solid var(--border2);border-radius:14px;
+  cursor:pointer;color:var(--text);white-space:nowrap;
+  touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:background .1s, color .1s, border-color .1s;
+}
+.id-chip:active,.id-chip.used{
+  background:var(--blue-bg);border-color:var(--blue-bd);color:var(--blue);
+}
+
 /* ── Inline messages ─────────────────────────────────────────────────── */
 .msg{font-size:13px;padding:8px 12px;border-radius:var(--radius);margin-top:8px}
 .msg-ok{background:var(--green-bg);color:var(--green)}

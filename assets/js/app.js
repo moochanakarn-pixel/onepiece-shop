@@ -335,11 +335,121 @@ function searchCards(q) {
   }, 250);
 }
 
+// ─── CARD SCAN (Tesseract.js OCR — runs in browser, no external API)
+var _tWorker = null;
+
+async function _getTWorker() {
+  if (!_tWorker) {
+    _tWorker = await Tesseract.createWorker('eng');
+  }
+  return _tWorker;
+}
+
+async function identifyCard(input) {
+  var file = input.files[0];
+  if (!file) return;
+
+  // show image preview immediately
+  var prevRow = document.getElementById('cs-prev');
+  var imgEl   = document.getElementById('cs-thumb');
+  if (imgEl)   { imgEl.src = URL.createObjectURL(file); }
+  if (prevRow) { prevRow.style.display = 'flex'; }
+  _csStatus('กำลังอ่านตัวอักษรบนการ์ด...', '');
+  var chipsEl = document.getElementById('cs-chips');
+  if (chipsEl) chipsEl.innerHTML = '';
+
+  if (typeof Tesseract === 'undefined') {
+    _csStatus('โหลด OCR ไม่สำเร็จ — กรอกชื่อเองได้เลย', 'var(--red)');
+    return;
+  }
+
+  try {
+    var worker = await _getTWorker();
+    var result = await worker.recognize(file);
+    var text   = result.data.text || '';
+
+    // extract card number: OP01-001 / ST01-001 / EB01-001 etc.
+    var m = text.replace(/[ \t]/g, '').match(/([A-Z]{1,3})(\d{1,2})-(\d{2,3})/);
+    if (m) {
+      var setCode = m[1];
+      var setNum  = m[2].padStart(2, '0');
+      var cardNum = m[3].padStart(3, '0');
+      var cardNo  = setCode + setNum + '-' + cardNum;
+      var noEl = document.getElementById('b-no');
+      if (noEl) noEl.value = cardNo;
+      var setEl = document.getElementById('b-set');
+      if (setEl) setEl.value = setCode + '-' + setNum;
+    }
+
+    // build word chips: confidence > 55, letters only, length >= 3
+    var seen = {}, chips = [];
+    (result.data.words || []).forEach(function (w) {
+      if (w.confidence < 55) return;
+      var t = w.text.replace(/[^A-Za-z\-']/g, '').trim();
+      if (t.length < 3 || /^\d/.test(t) || seen[t.toLowerCase()]) return;
+      seen[t.toLowerCase()] = true;
+      chips.push(t);
+    });
+
+    var prefix = m
+      ? '✓ เลขการ์ด ' + m[1] + m[2].padStart(2,'0') + '-' + m[3].padStart(3,'0') + '  '
+      : 'ไม่พบเลขการ์ด  ';
+    _csStatus(prefix + '· แตะคำด้านล่างเพื่อใช้เป็นชื่อ', m ? 'var(--green)' : '');
+    _csChips(chips.slice(0, 16));
+
+  } catch (e) {
+    _csStatus('อ่านไม่สำเร็จ — กรอกชื่อเองได้เลย', 'var(--red)');
+  }
+}
+
+function _csStatus(msg, color) {
+  var el = document.getElementById('cs-status');
+  if (el) { el.textContent = msg; el.style.color = color || ''; }
+}
+
+function _csChips(words) {
+  var el = document.getElementById('cs-chips');
+  if (!el) return;
+  el.innerHTML = words.map(function (w) {
+    return '<button class="id-chip" onclick="useChip(\'' + w.replace(/'/g, "\\'") + '\',this)">'
+      + esc(w) + '</button>';
+  }).join('');
+}
+
+function useChip(word, btn) {
+  var n = document.getElementById('b-name');
+  if (n) { n.value = word; n.focus(); }
+  // highlight selected chip
+  document.querySelectorAll('.id-chip').forEach(function (el) { el.classList.remove('used'); });
+  if (btn) btn.classList.add('used');
+}
+
 // ─── BUY
 function renderBuy() {
   document.getElementById('tab-buy').innerHTML =
     '<div class="form-section">'
     + '<div class="form-title">➕ บันทึกการซื้อการ์ด</div>'
+
+    // ── Card scan
+    + '<div class="card-scan">'
+      + '<div class="cs-top">'
+        + '<span class="cs-icon">📷</span>'
+        + '<div class="cs-texts">'
+          + '<b class="cs-title">สแกนการ์ด</b>'
+          + '<span class="cs-sub">อัพโหลดหรือถ่ายรูปการ์ด — ดึงเลขการ์ดอัตโนมัติ</span>'
+        + '</div>'
+      + '</div>'
+      + '<div class="cs-ctrl">'
+        + '<input type="file" id="cs-file" accept="image/*" style="display:none" onchange="identifyCard(this)">'
+        + '<label class="btn btn-c2p" for="cs-file" style="cursor:pointer;flex-shrink:0">📷 เลือกรูป</label>'
+        + '<span id="cs-status" class="cs-status">เลือกรูปการ์ดเพื่อดึงข้อมูล</span>'
+      + '</div>'
+      + '<div id="cs-prev" class="cs-prev" style="display:none">'
+        + '<img id="cs-thumb" class="cs-thumb" alt="card">'
+        + '<div id="cs-chips" class="id-chips"></div>'
+      + '</div>'
+    + '</div>'
+
     + '<div class="form-grid">'
       + '<div class="field form-full"><label>ชื่อการ์ด</label>'
         + '<input id="b-name" type="text" placeholder="เช่น Zoro หรือ โซโล่" autocomplete="off"'
