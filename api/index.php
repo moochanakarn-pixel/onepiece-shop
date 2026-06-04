@@ -21,7 +21,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
-$method   = $_SERVER['REQUEST_METHOD'];
+$method   = $_GET['_method'] ?? $_SERVER['REQUEST_METHOD'];
 $path     = trim($_GET['path'] ?? '', '/');
 $parts    = explode('/', $path);
 $resource = $parts[0] ?? '';

@@ -29,9 +29,17 @@ function rarityBadge(r) {
 async function api(path, method, body) {
   method = method || 'GET';
   try {
-    var opts = {method: method, headers: {'Content-Type': 'application/json'}};
+    // IIS blocks DELETE/PUT — tunnel via POST with ?_method= override
+    var fetchMethod = method;
+    var fetchPath   = path;
+    if (method === 'DELETE' || method === 'PUT') {
+      fetchPath   = path + (path.indexOf('?') >= 0 ? '&' : '?') + '_method=' + method;
+      fetchMethod = 'POST';
+      if (!body) body = {};
+    }
+    var opts = {method: fetchMethod, headers: {'Content-Type': 'application/json'}};
     if (body) opts.body = JSON.stringify(body);
-    var res = await fetch(API + path, opts);
+    var res = await fetch(API + fetchPath, opts);
     var data;
     try { data = await res.json(); } catch(e) { data = {}; }
     if (!res.ok) return {error: data.error || 'เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ' + res.status + ')'};
