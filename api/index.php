@@ -67,10 +67,10 @@ function fetchVal($db, $sql) {
 function handleStats() {
     $db = getDB();
     jsonResponse([
-        'total_cost'    => (float)fetchVal($db, "SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='buy'"),
+        'total_cost'    => (float)fetchVal($db, "SELECT COALESCE(SUM(t.price*t.qty),0) FROM transactions t INNER JOIN cards c ON t.card_id=c.id WHERE t.type='buy' AND c.deleted=0"),
         'total_revenue' => (float)fetchVal($db, "SELECT COALESCE(SUM(price*qty),0) FROM transactions WHERE type='sell'"),
         'total_profit'  => (float)fetchVal($db, "SELECT COALESCE(SUM(profit),0)    FROM transactions WHERE type='sell'"),
-        'total_bought'  => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM transactions WHERE type='buy'"),
+        'total_bought'  => (int)  fetchVal($db, "SELECT COALESCE(SUM(t.qty),0)     FROM transactions t INNER JOIN cards c ON t.card_id=c.id WHERE t.type='buy' AND c.deleted=0"),
         'stock_value'   => (float)fetchVal($db, "SELECT COALESCE(SUM(cost*qty),0)  FROM cards WHERE deleted=0 AND qty>0"),
         'market_value'  => (float)fetchVal($db, "SELECT COALESCE(SUM(CASE WHEN market_price>0 THEN market_price*qty ELSE cost*qty END),0) FROM cards WHERE deleted=0 AND qty>0"),
         'stock_count'   => (int)  fetchVal($db, "SELECT COALESCE(SUM(qty),0)       FROM cards WHERE deleted=0 AND qty>0"),
