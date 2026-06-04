@@ -513,3 +513,15 @@ body{
   font-size:14px;transition:all .15s
 }
 .bulk-actions .btn-outline:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
+
+/* ── Buy optional sections ──────────────────────────────────────────── */
+.buy-opt-row{display:flex;gap:8px;margin:14px 0 2px}
+.buy-opt-btn{
+  flex:1;height:36px;padding:0 12px;font-size:12px;font-weight:600;
+  border:1.5px solid var(--border2);border-radius:var(--radius-pill);
+  background:var(--surface);color:var(--muted);cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.buy-opt-btn.active{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
+.buy-extra-section{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2)}
