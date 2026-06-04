@@ -157,6 +157,20 @@ body{
 #toast.toast-ok{background:var(--green)}
 #toast.toast-err{background:var(--red)}
 
+/* ── Edit card form (inside modal) ──────────────────────────────────────── */
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px}
+.edit-full{grid-column:1/-1}
+#modal-form .field label{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+#modal-form .field input,
+#modal-form .field select{
+  width:100%;height:40px;padding:0 10px;
+  border:1px solid var(--border2);border-radius:var(--radius);
+  font-size:14px;font-family:inherit;background:#fff;
+  touch-action:manipulation;
+}
+#modal-form .field input:focus,
+#modal-form .field select:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:transparent}
+
 /* ── Custom modal ──────────────────────────────────────────────────────── */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:300;
@@ -182,6 +196,7 @@ body{
 .modal-input:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:transparent}
 .modal-btns{display:flex;gap:8px;justify-content:flex-end}
 .modal-btns .btn{height:40px;min-width:80px}
+.modal-box.wide{max-width:400px}
 
 /* ── Card scan section ───────────────────────────────────────────────── */
 .card-scan{
@@ -216,6 +231,18 @@ body{
 .msg{font-size:13px;padding:8px 12px;border-radius:var(--radius);margin-top:8px}
 .msg-ok{background:var(--green-bg);color:var(--green)}
 .msg-err{background:var(--red-bg);color:var(--red)}
+
+/* ── History filter ──────────────────────────────────────────────────── */
+.hist-filter{margin-bottom:.75rem}
+.hist-filter-row{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.hist-sel,.hist-date{
+  height:40px;padding:0 8px;font-size:14px;font-family:inherit;
+  border:1px solid var(--border2);border-radius:var(--radius);
+  background:#fff;color:var(--text);touch-action:manipulation;
+}
+.hist-sel{flex-shrink:0}
+.hist-date{flex:1;min-width:110px}
+.hist-date:focus,.hist-sel:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:transparent}
 
 /* ── History ──────────────────────────────────────────────────────────── */
 .history-item{display:flex;align-items:start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}

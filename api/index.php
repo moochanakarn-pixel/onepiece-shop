@@ -133,10 +133,25 @@ function handleCards($method, $id) {
     }
 
     if ($method === 'PUT' && $id) {
-        $d = getInput();
-        $market = (float)($d['market_price'] ?? 0);
-        $stmt = $db->prepare("UPDATE cards SET market_price=? WHERE id=?");
-        $stmt->execute([$market, $id]);
+        $d      = getInput();
+        $fields = [];
+        $params = [];
+
+        if (array_key_exists('name',         $d)) { $fields[] = 'name=?';         $params[] = trim($d['name']); }
+        if (array_key_exists('card_set',     $d)) { $fields[] = 'card_set=?';     $params[] = trim($d['card_set']); }
+        if (array_key_exists('card_no',      $d)) { $fields[] = 'card_no=?';      $params[] = trim($d['card_no']); }
+        if (array_key_exists('rarity',       $d)) { $fields[] = 'rarity=?';       $params[] = $d['rarity']; }
+        if (array_key_exists('cost',         $d)) { $fields[] = 'cost=?';         $params[] = (float)$d['cost']; }
+        if (array_key_exists('qty',          $d)) { $fields[] = 'qty=?';          $params[] = max(0, (int)$d['qty']); }
+        if (array_key_exists('market_price', $d)) { $fields[] = 'market_price=?'; $params[] = (float)$d['market_price']; }
+
+        if (empty($fields)) jsonResponse(['success' => true]);
+
+        if (isset($d['name']) && !trim($d['name'])) jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
+
+        $params[] = $id;
+        $stmt = $db->prepare('UPDATE cards SET ' . implode(',', $fields) . ' WHERE id=?');
+        $stmt->execute($params);
         jsonResponse(['success' => true]);
     }
 
