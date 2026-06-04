@@ -32,10 +32,19 @@ async function api(path, method, body) {
     // IIS blocks DELETE/PUT — tunnel via POST with ?_method= override
     var fetchMethod = method;
     var fetchPath   = path;
+    var baseUrl = 'api/index.php';
     if (method === 'DELETE' || method === 'PUT') {
-      fetchPath   = path + (path.indexOf('?') >= 0 ? '&' : '?') + '_method=' + method;
       fetchMethod = 'POST';
       if (!body) body = {};
+      var res2 = await fetch(baseUrl + '?_method=' + method + '&path=' + encodeURIComponent(fetchPath), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      var data2;
+      try { data2 = await res2.json(); } catch(e) { data2 = {}; }
+      if (!res2.ok) return {error: data2.error || 'เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ' + res2.status + ')'};
+      return data2;
     }
     var opts = {method: fetchMethod, headers: {'Content-Type': 'application/json'}};
     if (body) opts.body = JSON.stringify(body);
