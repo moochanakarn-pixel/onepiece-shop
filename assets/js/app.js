@@ -10,6 +10,12 @@ let _msgTimers   = {};
 let _histTimer;
 let _searchTimer;
 
+// New globals
+var _cart = [];
+var _stockSort = 'price_desc';
+var _chartPeriod = 'daily';
+var _chartInstance = null;
+
 // ─── UTILS
 const fmt = n => '฿' + Number(n || 0).toLocaleString('th-TH', {minimumFractionDigits:0, maximumFractionDigits:0});
 
@@ -176,6 +182,8 @@ function showEditCard(id) {
       + '<input id="ef-qty" type="number" inputmode="numeric" min="0" value="' + (c.qty || 0) + '"></div>'
     + '<div class="field edit-full"><label>ราคาตลาด (฿)</label>'
       + '<input id="ef-market" type="number" inputmode="decimal" value="' + (c.market_price || 0) + '"></div>'
+    + '<div class="field edit-full"><label>รูปการ์ด URL</label>'
+      + '<input id="ef-img" type="text" value="' + esc(c.image_url || '') + '" placeholder="https://... หรืออัปโหลดแล้ววาง URL"></div>'
     + '</div>';
   formEl.style.display = 'block';
   var overlay2 = document.getElementById('modal-overlay');
@@ -193,12 +201,14 @@ function showEditCard(id) {
     var qty    = parseInt((document.getElementById('ef-qty')    || {value:'0'}).value);
     if (isNaN(qty)) qty = 0;
     var market = parseFloat((document.getElementById('ef-market') || {value:'0'}).value) || 0;
+    var imgUrl = (document.getElementById('ef-img')    || {value:''}).value.trim();
 
     if (!name) { toast('กรุณาใส่ชื่อการ์ด', false); return; }
 
     api('cards/' + id, 'PUT', {
       name: name, card_set: set, card_no: cardNo,
-      rarity: rarity, cost: cost, qty: qty, market_price: market
+      rarity: rarity, cost: cost, qty: qty, market_price: market,
+      image_url: imgUrl
     }).then(function (res) {
       if (res && res.success) {
         toast('✓ แก้ไข "' + name + '" เรียบร้อย');
@@ -363,17 +373,21 @@ function cardItemHtml(c) {
     ? '<div class="card-market">📈 ราคาตลาด ' + fmt(market) + ' · กำไร ' + fmt(market - cost) + '/ใบ</div>'
     : '<div class="card-market" style="color:var(--hint)">ยังไม่มีราคาตลาด</div>';
   var meta = [c.card_set, c.card_no, 'ทุน ' + fmt(cost)].filter(Boolean).join(' · ');
+  var thumbHtml = c.image_url
+    ? '<img class="card-thumb" src="' + esc(c.image_url) + '" loading="lazy" onerror="this.style.display=\'none\'">'
+    : '<div class="card-thumb-empty"></div>';
   return '<div class="card-item" id="ci-' + c.id + '">'
+    + thumbHtml
     + '<div class="card-body">'
       + '<div class="card-name">' + esc(c.name) + rarityBadge(c.rarity)
         + '<span class="badge b-stock" style="margin-left:6px">' + c.qty + ' ใบ</span></div>'
       + '<div class="card-meta">' + esc(meta) + '</div>'
       + marketLine
-    + '</div>'
-    + '<div class="card-actions btn-row">'
-      + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
-      + '<button class="btn" onclick="showEditCard(' + c.id + ')">✎ แก้ไข</button>'
-      + '<button class="btn btn-danger" onclick="deleteCard(' + c.id + ')">✕</button>'
+      + '<div class="card-actions btn-row">'
+        + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
+        + '<button class="btn" onclick="showEditCard(' + c.id + ')">✎ แก้ไข</button>'
+        + '<button class="btn btn-danger" onclick="deleteCard(' + c.id + ')">✕</button>'
+      + '</div>'
     + '</div>'
   + '</div>';
 }
@@ -384,11 +398,18 @@ async function renderDashboard() {
   var el = document.getElementById('tab-dashboard');
   el.innerHTML = '<div class="empty loading-pulse">กำลังโหลด...</div>';
 
-  var results = await Promise.all([api('stats'), api('cards')]);
+  var results = await Promise.all([
+    api('stats'),
+    api('cards'),
+    api('stats/chart?period=' + _chartPeriod),
+    api('stats/ranking')
+  ]);
   if (token !== _renderToken) return;
 
-  var stats    = results[0] || {};
-  var cards    = Array.isArray(results[1]) ? results[1] : [];
+  var stats     = results[0] || {};
+  var cards     = Array.isArray(results[1]) ? results[1] : [];
+  var chartData = Array.isArray(results[2]) ? results[2] : [];
+  var ranking   = Array.isArray(results[3]) ? results[3] : [];
   saveCards(cards);
 
   var unr      = Number(stats.unrealized) || 0;
@@ -425,7 +446,84 @@ async function renderDashboard() {
     html += '<div class="empty">ยังไม่มีสต็อก</div>';
   }
   html += '</div>';
+
+  // Chart section
+  var periodDaily   = _chartPeriod === 'daily'   ? ' active' : '';
+  var periodMonthly = _chartPeriod === 'monthly' ? ' active' : '';
+  html += '<div class="section-hd" style="margin-top:1.25rem"><span class="section-title">รายรับ / กำไร</span>'
+        + '<div class="period-row">'
+          + '<button class="period-btn' + periodDaily   + '" onclick="setChartPeriod(\'daily\')">30 วัน</button>'
+          + '<button class="period-btn' + periodMonthly + '" onclick="setChartPeriod(\'monthly\')">รายเดือน</button>'
+        + '</div></div>'
+        + '<div class="chart-wrap"><canvas id="profit-chart" style="max-height:220px"></canvas></div>';
+
+  // Ranking section
+  html += '<div class="section-hd"><span class="section-title">Top 10 การ์ดกำไรสูงสุด</span></div>';
+  if (ranking.length) {
+    html += '<table class="rank-table"><thead><tr>'
+      + '<th class="rank-num">#</th><th>การ์ด</th><th>ขายไป</th><th style="text-align:right">กำไร</th>'
+      + '</tr></thead><tbody>';
+    ranking.forEach(function (r, i) {
+      var profit = Number(r.total_profit) || 0;
+      var profitCls = profit >= 0 ? 'rank-profit' : 'rank-profit neg';
+      html += '<tr>'
+        + '<td class="rank-num">' + (i + 1) + '</td>'
+        + '<td>' + esc(r.card_name) + '</td>'
+        + '<td style="color:var(--muted)">' + (r.total_qty || 0) + ' ใบ</td>'
+        + '<td class="' + profitCls + '">' + fmt(profit) + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty" style="padding:1rem">ยังไม่มีข้อมูลการขาย</div>';
+  }
+
   el.innerHTML = html;
+  _renderChart(chartData);
+}
+
+// ─── CHART
+function setChartPeriod(p) {
+  _chartPeriod = p;
+  renderDashboard();
+}
+
+async function _loadChartJs() {
+  if (window.Chart) return;
+  await new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function _renderChart(data) {
+  try {
+    await _loadChartJs();
+    var canvas = document.getElementById('profit-chart');
+    if (!canvas) return;
+    if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
+    if (!data.length) return;
+    var labels   = data.map(function (d) { return d.label; });
+    var revenues = data.map(function (d) { return Number(d.revenue) || 0; });
+    var profits  = data.map(function (d) { return Number(d.profit)  || 0; });
+    _chartInstance = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {label:'รายรับ', data:revenues, backgroundColor:'rgba(24,95,165,0.6)',  borderColor:'rgba(24,95,165,1)',  borderWidth:1},
+          {label:'กำไร',   data:profits,  backgroundColor:'rgba(15,110,86,0.6)',  borderColor:'rgba(15,110,86,1)',  borderWidth:1}
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {legend: {position: 'top'}},
+        scales: {y: {beginAtZero: true, ticks: {callback: function (v) { return '฿' + v.toLocaleString(); }}}}
+      }
+    });
+  } catch (e) { console.warn('chart error', e); }
 }
 
 // ─── STOCK
@@ -434,6 +532,7 @@ async function renderStock() {
   var el = document.getElementById('tab-stock');
   el.innerHTML =
     '<input class="search-box" placeholder="🔍 ค้นหาชื่อ หรือ เลขการ์ด..." oninput="searchCards(this.value)">'
+    + _sortControlsHtml()
     + '<div class="section-hd">'
       + '<span class="section-title" id="stock-count">กำลังโหลด...</span>'
       + '<button class="btn btn-c2p" onclick="exportStock()">📥 Export</button>'
@@ -443,7 +542,7 @@ async function renderStock() {
   if (token !== _renderToken) return;
   cards = Array.isArray(cards) ? cards : [];
   saveCards(cards);
-  renderStockList(cards);
+  renderStockList(_sortCards(cards));
 }
 
 function renderStockList(cards) {
@@ -461,13 +560,49 @@ function searchCards(q) {
   clearTimeout(_searchTimer);
   _searchTimer = setTimeout(function () {
     var q2 = q.trim().toLowerCase();
-    if (!q2) { renderStockList(Object.values(_cards)); return; }
-    var filtered = Object.values(_cards).filter(function (c) {
-      return (c.name || '').toLowerCase().indexOf(q2) >= 0
-          || (c.card_no || '').toLowerCase().indexOf(q2) >= 0;
-    });
-    renderStockList(filtered);
+    var base = Object.values(_cards);
+    if (q2) {
+      base = base.filter(function (c) {
+        return (c.name || '').toLowerCase().indexOf(q2) >= 0
+            || (c.card_no || '').toLowerCase().indexOf(q2) >= 0;
+      });
+    }
+    renderStockList(_sortCards(base));
   }, 250);
+}
+
+function _sortControlsHtml() {
+  var opts = [['price_desc','ราคาสูง'],['price_asc','ราคาต่ำ'],['name_asc','ชื่อ A-Z'],['qty_desc','จำนวนมาก']];
+  return '<div class="sort-row">' + opts.map(function (o) {
+    return '<button class="sort-btn' + (_stockSort === o[0] ? ' active' : '') + '" onclick="setStockSort(\'' + o[0] + '\')">' + o[1] + '</button>';
+  }).join('') + '</div>';
+}
+
+function setStockSort(s) {
+  _stockSort = s;
+  var sorted = _sortCards(Object.values(_cards));
+  document.querySelectorAll('.sort-btn').forEach(function (b, i) {
+    b.classList.toggle('active', ['price_desc','price_asc','name_asc','qty_desc'][i] === s);
+  });
+  renderStockList(sorted);
+}
+
+function _sortCards(arr) {
+  return arr.slice().sort(function (a, b) {
+    if (_stockSort === 'price_desc') {
+      var av = Number(a.market_price) || Number(a.cost) || 0;
+      var bv = Number(b.market_price) || Number(b.cost) || 0;
+      return bv - av;
+    }
+    if (_stockSort === 'price_asc') {
+      var av2 = Number(a.market_price) || Number(a.cost) || 0;
+      var bv2 = Number(b.market_price) || Number(b.cost) || 0;
+      return av2 - bv2;
+    }
+    if (_stockSort === 'name_asc') return (a.name || '').localeCompare(b.name || '', 'th');
+    if (_stockSort === 'qty_desc') return Number(b.qty) - Number(a.qty);
+    return 0;
+  });
 }
 
 // ─── CARD SCAN (Tesseract.js OCR)
@@ -585,6 +720,20 @@ function renderBuy() {
       + '</div>'
     + '</div>'
 
+    // image upload for card thumbnail
+    + '<div class="field form-full" style="margin-bottom:10px">'
+      + '<label>รูปการ์ด</label>'
+      + '<div class="img-upload-row">'
+        + '<input type="file" id="b-img-file" accept="image/*" style="display:none" onchange="uploadCardImg(this,\'b-img-url\',\'b-img-prev\',\'b-img-thumb\')">'
+        + '<label class="btn btn-c2p" for="b-img-file" style="cursor:pointer">📷 ถ่าย/อัปโหลด</label>'
+        + '<input id="b-img-url" type="text" placeholder="หรือวาง URL รูปภาพ" oninput="previewImgUrl(this.value,\'b-img-prev\',\'b-img-thumb\')">'
+      + '</div>'
+      + '<div id="b-img-prev" class="img-prev" style="display:none">'
+        + '<img id="b-img-thumb" class="img-prev-thumb" src="" alt="">'
+        + '<button class="btn btn-danger" onclick="clearImg(\'b-img-url\',\'b-img-prev\',\'b-img-thumb\',\'b-img-file\')" type="button">✕ ลบรูป</button>'
+      + '</div>'
+    + '</div>'
+
     + '<div class="form-grid">'
       + '<div class="field form-full"><label>ชื่อการ์ด</label>'
         + '<input id="b-name" type="text" placeholder="เช่น Zoro หรือ โซโล่" autocomplete="off"'
@@ -626,6 +775,44 @@ function openC2PBuy() {
   window.open(c2pUrl(document.getElementById('b-no').value.trim()), '_blank');
 }
 
+// ─── IMAGE UPLOAD HELPERS
+async function uploadCardImg(input, urlId, prevId, thumbId) {
+  var file = input.files[0];
+  if (!file) return;
+  var thumb = document.getElementById(thumbId);
+  var prev  = document.getElementById(prevId);
+  var urlEl = document.getElementById(urlId);
+  if (thumb) thumb.src = URL.createObjectURL(file);
+  if (prev)  prev.style.display = 'flex';
+  var form = new FormData();
+  form.append('image', file);
+  try {
+    var res  = await fetch('api/index.php?path=upload', {method: 'POST', body: form});
+    var data = await res.json();
+    if (data.url && urlEl) urlEl.value = data.url;
+    else if (data.error)   toast(data.error, false);
+  } catch (e) { toast('อัปโหลดรูปล้มเหลว', false); }
+}
+
+function previewImgUrl(url, prevId, thumbId) {
+  var prev  = document.getElementById(prevId);
+  var thumb = document.getElementById(thumbId);
+  if (!url) { if (prev) prev.style.display = 'none'; return; }
+  if (thumb) thumb.src = url;
+  if (prev)  prev.style.display = 'flex';
+}
+
+function clearImg(urlId, prevId, thumbId, fileId) {
+  var urlEl  = document.getElementById(urlId);
+  var prevEl = document.getElementById(prevId);
+  var thumbEl = document.getElementById(thumbId);
+  var fileEl  = document.getElementById(fileId);
+  if (urlEl)   urlEl.value = '';
+  if (prevEl)  prevEl.style.display = 'none';
+  if (thumbEl) thumbEl.src = '';
+  if (fileEl)  fileEl.value = '';
+}
+
 async function submitBuy() {
   var btn = document.getElementById('buy-btn');
   if (!lockBtn('buy', btn, 'กำลังบันทึก...')) return;
@@ -637,6 +824,7 @@ async function submitBuy() {
   var cost   = parseFloat(document.getElementById('b-cost').value)   || 0;
   var qty    = parseInt(document.getElementById('b-qty').value)      || 1;
   var market = parseFloat(document.getElementById('b-market').value) || 0;
+  var imgUrl = (document.getElementById('b-img-url') || {value: ''}).value.trim();
 
   if (!name) {
     showMsg('buy-msg', 'กรุณาใส่ชื่อการ์ด', false);
@@ -646,7 +834,8 @@ async function submitBuy() {
 
   var res = await api('cards', 'POST', {
     name: name, card_set: set, card_no: cardNo,
-    rarity: rarity, cost: cost, qty: qty, market_price: market
+    rarity: rarity, cost: cost, qty: qty, market_price: market,
+    image_url: imgUrl
   });
 
   if (res && res.success) {
@@ -656,6 +845,7 @@ async function submitBuy() {
     });
     document.getElementById('b-qty').value = '1';
     document.getElementById('b-rarity').value = '';
+    clearImg('b-img-url', 'b-img-prev', 'b-img-thumb', 'b-img-file');
     document.getElementById('b-name').focus();
   } else {
     showMsg('buy-msg', (res && res.error) || 'เกิดข้อผิดพลาด', false);
@@ -681,9 +871,11 @@ async function renderSell() {
   }
 
   el.innerHTML =
-    '<input class="search-box" id="sell-search" placeholder="🔍 ค้นหาการ์ดที่ต้องการขาย..." oninput="filterSell(this.value)">'
+    '<div id="cart-bar" style="display:none"></div>'
+    + '<input class="search-box" id="sell-search" placeholder="🔍 ค้นหาการ์ดที่ต้องการขาย..." oninput="filterSell(this.value)">'
     + '<div id="sell-list"></div>'
     + '<div id="sell-msg"></div>';
+  renderCartBar();
   renderSellList(_sellCards);
 }
 
@@ -728,6 +920,7 @@ function renderSellList(cards) {
         + ' onkeydown="if(event.key===\'Enter\')submitSell(' + c.id + ')">'
       + '<div class="sell-action-row">'
         + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
+        + '<button class="btn" id="cart-btn-' + c.id + '" onclick="addToCart(' + c.id + ')">🛒 ตะกร้า</button>'
         + '<button class="btn btn-primary" id="sell-btn-' + c.id + '" style="flex:1"'
           + ' onclick="submitSell(' + c.id + ')">ขาย</button>'
       + '</div>'
@@ -785,6 +978,94 @@ async function submitSell(id) {
     showMsg('sell-msg', (res && res.error) || 'เกิดข้อผิดพลาด', false);
     unlockBtn('sell' + id, btn, 'ขาย');
   }
+}
+
+// ─── CART
+function addToCart(id) {
+  var c = _cards[id];
+  if (!c) return;
+  var price = parseFloat((document.getElementById('sp-' + id) || {value: 0}).value) || 0;
+  var qty   = parseInt((document.getElementById('sq-' + id)   || {value: 1}).value) || 1;
+  if (!price) { showMsg('sell-msg', 'กรุณาใส่ราคาขายก่อนเพิ่มตะกร้า', false); return; }
+  if (qty < 1 || qty > Number(c.qty)) { showMsg('sell-msg', 'จำนวนไม่ถูกต้อง', false); return; }
+  // merge if same card+price
+  var existing = _cart.filter(function (item) { return item.id === id && item.price === price; });
+  if (existing.length) {
+    existing[0].qty += qty;
+  } else {
+    _cart.push({id: id, name: c.name, cost: Number(c.cost), price: price, qty: qty, rarity: c.rarity});
+  }
+  renderCartBar();
+  toast('✓ เพิ่ม "' + c.name + '" ลงตะกร้าแล้ว');
+}
+
+function renderCartBar() {
+  var el = document.getElementById('cart-bar');
+  if (!el) return;
+  if (!_cart.length) { el.style.display = 'none'; return; }
+  var total = _cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+  el.style.display = 'block';
+  el.innerHTML = '<div class="cart-bar-inner">'
+    + '<span>🛒 <strong>' + _cart.length + '</strong> รายการ · <strong>' + fmt(total) + '</strong></span>'
+    + '<div style="display:flex;gap:6px">'
+      + '<button class="btn" onclick="clearCart()">ล้าง</button>'
+      + '<button class="btn btn-primary" onclick="checkoutCart()">ชำระเงิน</button>'
+    + '</div>'
+  + '</div>';
+}
+
+function clearCart() { _cart = []; renderCartBar(); }
+
+function checkoutCart() {
+  if (!_cart.length) return;
+  var formEl  = document.getElementById('modal-form');
+  var okBtn   = document.getElementById('modal-ok-btn');
+  var box     = document.getElementById('modal-box');
+  document.getElementById('modal-title').textContent = 'ชำระเงิน';
+  document.getElementById('modal-msg').textContent   = '';
+  document.getElementById('modal-input').style.display = 'none';
+  var rows = _cart.map(function (item, i) {
+    return '<div class="cart-item-row">'
+      + '<span class="cart-item-name">' + esc(item.name) + '</span>'
+      + '<span class="cart-item-detail">' + item.qty + ' ใบ × ' + fmt(item.price) + '</span>'
+      + '<button class="btn btn-danger" style="height:28px;padding:0 8px;font-size:11px" onclick="removeCartItem(' + i + ')">✕</button>'
+    + '</div>';
+  }).join('');
+  var total = _cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+  formEl.innerHTML = rows
+    + '<div class="cart-total">รวม ' + fmt(total) + '</div>'
+    + '<div class="field" style="margin-top:10px"><label>ชื่อลูกค้า (ไม่บังคับ)</label>'
+    + '<input id="checkout-customer" type="text" placeholder="ชื่อลูกค้า" style="height:44px;padding:0 12px;border:1px solid var(--border2);border-radius:8px;font-size:15px;width:100%;font-family:inherit"></div>';
+  formEl.style.display = 'block';
+  if (box) { box.classList.add('wide'); }
+  var overlay = document.getElementById('modal-overlay');
+  if (overlay) { overlay.style.display = 'flex'; overlay.classList.add('open'); }
+  _modalIsPrompt = false;
+  _modalCb = async function () {
+    var customer = (document.getElementById('checkout-customer') || {value: ''}).value.trim();
+    var orderId  = Date.now().toString(36).toUpperCase();
+    var items    = _cart.slice();
+    var errors   = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var res = await api('transactions', 'POST', {card_id: item.id, price: item.price, qty: item.qty, customer_name: customer, order_id: orderId, note: ''});
+      if (!res || !res.success) errors.push(item.name + ': ' + (res && res.error || 'ผิดพลาด'));
+    }
+    if (errors.length) {
+      toast(errors.join(' | '), false);
+    } else {
+      toast('✓ ชำระเงินสำเร็จ ' + items.length + ' รายการ');
+      _cart = [];
+      renderSell();
+    }
+  };
+  if (okBtn) { okBtn.textContent = 'ยืนยันชำระเงิน'; okBtn.className = 'btn btn-primary'; }
+}
+
+function removeCartItem(idx) {
+  _cart.splice(idx, 1);
+  if (!_cart.length) { _modalClose(); return; }
+  checkoutCart(); // re-render modal
 }
 
 // ─── HISTORY
@@ -879,6 +1160,7 @@ function renderHistList(txns) {
         + '<div class="h-name">' + esc(t.card_name) + '</div>'
         + '<div class="h-detail">' + (isBuy ? 'ซื้อเข้า' : 'ขายออก') + ' ' + t.qty
           + ' ใบ · ' + fmt(t.price) + '/ใบ' + profitStr + ' · ' + dateStr
+          + (t.customer_name ? ' · 👤 ' + esc(t.customer_name) : '')
           + (t.note ? ' · 📝 ' + esc(t.note) : '') + '</div>'
       + '</div>'
       + '<div class="h-right">'

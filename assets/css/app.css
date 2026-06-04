@@ -278,6 +278,51 @@ body{
 @keyframes shimmer{0%{opacity:.4}50%{opacity:.8}100%{opacity:.4}}
 .loading-pulse{animation:shimmer 1.2s ease-in-out infinite;pointer-events:none}
 
+/* Card thumbnail */
+.card-item{display:flex;gap:10px;align-items:flex-start}
+.card-thumb{width:52px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border2);flex-shrink:0}
+.card-thumb-empty{width:52px;height:72px;border-radius:6px;border:1px dashed var(--border2);flex-shrink:0;background:var(--bg)}
+.card-body{flex:1;min-width:0}
+
+/* Image upload */
+.img-upload-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.img-upload-row input[type=text]{flex:1;height:44px;padding:0 12px;border:1px solid var(--border2);border-radius:var(--radius);font-size:15px;font-family:inherit;background:#fff;touch-action:manipulation}
+.img-prev{display:flex;gap:10px;align-items:center;margin-top:6px}
+.img-prev-thumb{width:60px;height:84px;object-fit:cover;border-radius:6px;border:1px solid var(--border2)}
+
+/* Sort controls */
+.sort-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.sort-btn{height:36px;padding:0 12px;font-size:13px;border:1px solid var(--border2);border-radius:20px;background:none;cursor:pointer;color:var(--muted);touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent}
+.sort-btn.active{background:var(--text);color:#fff;border-color:transparent}
+
+/* Cart bar */
+.cart-bar-inner{display:flex;align-items:center;justify-content:space-between;background:var(--text);color:#fff;border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:12px}
+.cart-bar-inner span{font-size:14px}
+.cart-bar-inner .btn{height:38px;font-size:13px}
+.cart-bar-inner .btn-primary{background:var(--green);border-color:transparent}
+
+/* Cart checkout modal items */
+.cart-item-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cart-item-row:last-of-type{border:none}
+.cart-item-name{flex:1;font-size:14px;font-weight:500}
+.cart-item-detail{font-size:13px;color:var(--muted);white-space:nowrap}
+.cart-total{font-size:15px;font-weight:700;text-align:right;padding:8px 0;border-top:2px solid var(--border)}
+
+/* Chart */
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;margin-bottom:1.25rem;height:240px}
+.period-row{display:flex;gap:6px;margin-bottom:.75rem}
+.period-btn{height:32px;padding:0 14px;font-size:12px;border:1px solid var(--border2);border-radius:16px;background:none;cursor:pointer;color:var(--muted);touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent}
+.period-btn.active{background:var(--blue);color:#fff;border-color:transparent}
+
+/* Ranking table */
+.rank-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:1.25rem}
+.rank-table th{text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase;border-bottom:2px solid var(--border)}
+.rank-table td{padding:10px 8px;border-bottom:1px solid var(--border)}
+.rank-table tr:last-child td{border:none}
+.rank-num{font-weight:700;color:var(--muted);width:28px}
+.rank-profit{font-weight:600;color:var(--green);text-align:right}
+.rank-profit.neg{color:var(--red)}
+
 /* ── Desktop (640px+) ────────────────────────────────────────────────── */
 @media(min-width:640px){
   body{padding-bottom:0}
@@ -301,6 +346,8 @@ body{
   .stat{padding:.85rem 1rem}
   .stat-value{font-size:20px}
   .card-item{display:flex;align-items:start;gap:10px;padding:12px 14px}
+  .card-thumb{width:44px;height:62px}
+  .card-thumb-empty{width:44px;height:62px}
   .card-body{flex:1;min-width:0;margin-bottom:0}
   .card-actions{flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
   .form-grid{grid-template-columns:1fr 1fr}
