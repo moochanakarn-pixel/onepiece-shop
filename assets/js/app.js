@@ -914,5 +914,9 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(function (e) {
       console.warn('SW:', e.message);
     });
+    // Auto-reload when new SW takes control (clears stale cache)
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      window.location.reload();
+    });
   });
 }
