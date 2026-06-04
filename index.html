@@ -16,6 +16,7 @@
     </div>
   </div>
 
+  <!-- top tabs (desktop) -->
   <div class="tabs">
     <button class="tab active" onclick="setTab('dashboard')">📊 ภาพรวม</button>
     <button class="tab" onclick="setTab('stock')">📦 สต็อก</button>
@@ -25,11 +26,31 @@
   </div>
 
   <div id="tab-dashboard"></div>
-  <div id="tab-stock"    style="display:none"></div>
-  <div id="tab-buy"      style="display:none"></div>
-  <div id="tab-sell"     style="display:none"></div>
-  <div id="tab-history"  style="display:none"></div>
+  <div id="tab-stock"   style="display:none"></div>
+  <div id="tab-buy"     style="display:none"></div>
+  <div id="tab-sell"    style="display:none"></div>
+  <div id="tab-history" style="display:none"></div>
 </div>
+
+<!-- bottom nav (mobile) -->
+<nav class="bottom-nav">
+  <button class="bnav-btn active" onclick="setTab('dashboard')">
+    <span class="bnav-icon">📊</span><span class="bnav-label">ภาพรวม</span>
+  </button>
+  <button class="bnav-btn" onclick="setTab('stock')">
+    <span class="bnav-icon">📦</span><span class="bnav-label">สต็อก</span>
+  </button>
+  <button class="bnav-btn" onclick="setTab('buy')">
+    <span class="bnav-icon">➕</span><span class="bnav-label">ซื้อเข้า</span>
+  </button>
+  <button class="bnav-btn" onclick="setTab('sell')">
+    <span class="bnav-icon">🏷️</span><span class="bnav-label">ขาย</span>
+  </button>
+  <button class="bnav-btn" onclick="setTab('history')">
+    <span class="bnav-icon">📋</span><span class="bnav-label">ประวัติ</span>
+  </button>
+</nav>
+
 <script src="assets/js/app.js"></script>
 </body>
 </html>
