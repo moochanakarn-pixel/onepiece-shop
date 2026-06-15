@@ -242,9 +242,11 @@ function handleTransactions($method, $id) {
 
         $db->query("UPDATE transactions SET deleted=1 WHERE id=$id");
 
-        // คืนสต็อกเมื่อยกเลิกรายการขาย
+        // คืน/ลดสต็อกตามประเภทรายการ
         if ($t['type'] === 'sell') {
             $db->query("UPDATE cards SET qty=qty+{$t['qty']}, deleted=0 WHERE id={$t['card_id']}");
+        } elseif ($t['type'] === 'buy') {
+            $db->query("UPDATE cards SET qty=GREATEST(0, qty-{$t['qty']}) WHERE id={$t['card_id']}");
         }
 
         jsonResponse(['success' => true]);

@@ -115,6 +115,7 @@ body{
 /* ── Badges ──────────────────────────────────────────────────────────── */
 .badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:var(--radius-pill);font-weight:700;white-space:nowrap;letter-spacing:.02em}
 .b-stock{background:var(--green-bg);color:var(--green)}
+.b-stock-low{background:var(--amber-bg);color:var(--amber)}
 .b-r{background:var(--blue-bg);color:var(--blue)}
 .b-sr{background:var(--purple-bg);color:var(--purple)}
 .b-sec,.b-l{background:var(--amber-bg);color:var(--amber)}

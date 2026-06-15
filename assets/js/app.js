@@ -367,7 +367,7 @@ function cardItemHtml(c) {
     + thumbHtml
     + '<div class="card-body">'
       + '<div class="card-name">' + esc(c.name) + rarityBadge(c.rarity)
-        + '<span class="badge b-stock" style="margin-left:6px">' + c.qty + ' ชิ้น</span></div>'
+        + '<span class="badge ' + (Number(c.qty) <= 2 ? 'b-stock-low' : 'b-stock') + '" style="margin-left:6px">' + c.qty + ' ชิ้น</span></div>'
       + '<div class="card-meta">' + esc(meta) + '</div>'
       + marketLine
       + '<div class="btn-row" style="margin-top:8px">'
@@ -452,7 +452,7 @@ async function renderDashboard() {
       html += '<tr>'
         + '<td class="rank-num">' + (i + 1) + '</td>'
         + '<td>' + esc(r.card_name) + '</td>'
-        + '<td style="color:var(--muted)">' + (r.total_qty || 0) + ' ใบ</td>'
+        + '<td style="color:var(--muted)">' + (r.total_qty || 0) + ' ชิ้น</td>'
         + '<td class="' + profitCls + '">' + fmt(profit) + '</td>'
         + '</tr>';
     });
@@ -1035,7 +1035,7 @@ function renderSellList(cards) {
     var initCls    = defPrice ? (market >= Number(c.cost) ? 'sell-profit-pos' : 'sell-profit-neg') : 'sell-profit-empty';
     html += '<div class="sell-card">'
       + '<div class="sell-name">' + esc(c.name) + rarityBadge(c.rarity) + '</div>'
-      + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + ' ชิ้น'
+      + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + (Number(c.qty) <= 2 ? ' ชิ้น ⚠️' : ' ชิ้น')
         + (market > 0 ? ' · ตลาด ' + fmt(market) : '') + '</div>'
       + '<div id="sp-profit-' + c.id + '" class="sell-profit ' + initCls + '">' + initProfit + '</div>'
       + '<div class="sell-row-inputs">'
@@ -1317,7 +1317,7 @@ function renderHistList(txns) {
 }
 
 function cancelTransaction(id, name, type) {
-  var extra = type === 'sell' ? ' และจำนวนสต็อกจะถูกคืนกลับ' : '';
+  var extra = type === 'sell' ? ' สต็อกจะถูกคืนกลับ' : ' สต็อกจะถูกลดลงตามจำนวนที่ซื้อ';
   showConfirm(
     'ยกเลิกรายการ',
     '"' + name + '" จะถูกยกเลิก' + extra,

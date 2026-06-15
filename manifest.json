@@ -1,12 +1,12 @@
 {
-  "name": "One Piece Card Shop",
-  "short_name": "OP Shop",
-  "description": "ระบบจัดการสต็อกการ์ด One Piece",
+  "name": "ระบบสต็อกสินค้า",
+  "short_name": "MyStock",
+  "description": "ระบบจัดการสต็อก ต้นทุน และกำไร",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f8f7f4",
-  "theme_color": "#185FA5",
+  "background_color": "#f0f1f5",
+  "theme_color": "#2563eb",
   "icons": [
     {
       "src": "assets/img/icon.svg",
