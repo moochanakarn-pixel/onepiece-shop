@@ -172,7 +172,7 @@ function handleCards($method, $id) {
         $market = (float)($d['market_price'] ?? 0);
         $image  = $db->real_escape_string(trim($d['image_url'] ?? ''));
 
-        if (!$name)   jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
+        if (!$name)   jsonResponse(['error' => 'กรุณาระบุชื่อสินค้า'], 400);
         if ($qty < 1) jsonResponse(['error' => 'จำนวนต้องมากกว่า 0'],  400);
 
         $eName   = $db->real_escape_string($name);
@@ -212,7 +212,7 @@ function handleCards($method, $id) {
         if (array_key_exists('image_url',    $d)) $parts[] = "image_url='"    . $db->real_escape_string(trim($d['image_url'])) . "'";
 
         if (empty($parts)) jsonResponse(['success' => true]);
-        if (isset($d['name']) && !trim($d['name'])) jsonResponse(['error' => 'กรุณาระบุชื่อการ์ด'], 400);
+        if (isset($d['name']) && !trim($d['name'])) jsonResponse(['error' => 'กรุณาระบุชื่อสินค้า'], 400);
 
         $db->query("UPDATE cards SET " . implode(',', $parts) . " WHERE id=$id");
         if ($db->error) jsonResponse(['error' => $db->error], 500);
@@ -264,7 +264,7 @@ function handleTransactions($method, $id) {
         if (!$cardId || !$price || $qty < 1) jsonResponse(['error' => 'ข้อมูลไม่ครบ'], 400);
 
         $c = fetchOne($db, "SELECT * FROM cards WHERE deleted=0 AND id=$cardId AND qty>=$qty LIMIT 1");
-        if (!$c) jsonResponse(['error' => 'ไม่พบการ์ดหรือสต็อกไม่พอ'], 400);
+        if (!$c) jsonResponse(['error' => 'ไม่พบสินค้าหรือสต็อกไม่พอ'], 400);
 
         $profit   = round(($price - $c['cost']) * $qty, 2);
         $cardName = $db->real_escape_string($c['name']);
