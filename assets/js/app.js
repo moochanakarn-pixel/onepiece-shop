@@ -23,17 +23,11 @@ var _buyShowMedia = false;
 // ─── UTILS
 const fmt = n => '฿' + Number(n || 0).toLocaleString('th-TH', {minimumFractionDigits:0, maximumFractionDigits:0});
 
-function c2pUrl(cardNo) {
-  return cardNo
-    ? 'https://card2price.com/card/' + encodeURIComponent(String(cardNo).trim())
-    : 'https://card2price.com/cards';
-}
-
 function rarityBadge(r) {
+  if (!r) return '';
   var map = {R:'b-r', SR:'b-sr', SEC:'b-sec', L:'b-l'};
-  return (r && map[r])
-    ? '<span class="badge ' + map[r] + '" style="margin-left:5px">' + r + '</span>'
-    : '';
+  var cls = map[r] || 'b-type';
+  return '<span class="badge ' + cls + '" style="margin-left:5px">' + esc(r) + '</span>';
 }
 
 async function api(path, method, body) {
@@ -161,32 +155,27 @@ function showEditCard(id) {
   var okBtn   = document.getElementById('modal-ok-btn');
   var box     = document.getElementById('modal-box');
 
-  document.getElementById('modal-title').textContent      = 'แก้ไขการ์ด';
+  document.getElementById('modal-title').textContent      = 'แก้ไขสินค้า';
   document.getElementById('modal-msg').textContent        = '';
   document.getElementById('modal-input').style.display   = 'none';
 
-  var rarOpts = ['','C','UC','R','SR','SEC','L'].map(function (r) {
-    return '<option value="' + r + '"' + (c.rarity === r ? ' selected' : '') + '>'
-      + (r || '—') + '</option>';
-  }).join('');
-
   formEl.innerHTML =
     '<div class="edit-grid">'
-    + '<div class="field edit-full"><label>ชื่อการ์ด</label>'
+    + '<div class="field edit-full"><label>ชื่อสินค้า</label>'
       + '<input id="ef-name" type="text" value="' + esc(c.name) + '"></div>'
-    + '<div class="field"><label>เซต</label>'
+    + '<div class="field"><label>แบรนด์ / ชุด</label>'
       + '<input id="ef-set" type="text" value="' + esc(c.card_set || '') + '"></div>'
-    + '<div class="field"><label>เลขการ์ด</label>'
+    + '<div class="field"><label>รหัสสินค้า</label>'
       + '<input id="ef-no" type="text" value="' + esc(c.card_no || '') + '"></div>'
-    + '<div class="field"><label>ความหายาก</label>'
-      + '<select id="ef-rarity">' + rarOpts + '</select></div>'
-    + '<div class="field"><label>ต้นทุน/ใบ (฿)</label>'
+    + '<div class="field"><label>ประเภท / หมวด</label>'
+      + '<input id="ef-rarity" type="text" value="' + esc(c.rarity || '') + '" placeholder="เช่น อาหาร, เสื้อผ้า, การ์ด..."></div>'
+    + '<div class="field"><label>ต้นทุน/ชิ้น (฿)</label>'
       + '<input id="ef-cost" type="number" inputmode="decimal" value="' + (c.cost || 0) + '"></div>'
     + '<div class="field"><label>จำนวนสต็อก</label>'
       + '<input id="ef-qty" type="number" inputmode="numeric" min="0" value="' + (c.qty || 0) + '"></div>'
     + '<div class="field edit-full"><label>ราคาตลาด (฿)</label>'
       + '<input id="ef-market" type="number" inputmode="decimal" value="' + (c.market_price || 0) + '"></div>'
-    + '<div class="field edit-full"><label>รูปการ์ด URL</label>'
+    + '<div class="field edit-full"><label>รูปสินค้า URL</label>'
       + '<input id="ef-img" type="text" value="' + esc(c.image_url || '') + '" placeholder="https://... หรืออัปโหลดแล้ววาง URL"></div>'
     + '</div>';
   formEl.style.display = 'block';
@@ -207,7 +196,7 @@ function showEditCard(id) {
     var market = parseFloat((document.getElementById('ef-market') || {value:'0'}).value) || 0;
     var imgUrl = (document.getElementById('ef-img')    || {value:''}).value.trim();
 
-    if (!name) { toast('กรุณาใส่ชื่อการ์ด', false); return; }
+    if (!name) { toast('กรุณาใส่ชื่อสินค้า', false); return; }
 
     api('cards/' + id, 'PUT', {
       name: name, card_set: set, card_no: cardNo,
@@ -278,7 +267,7 @@ function _downloadCSV(filename, rows) {
 function exportStock() {
   var cards = Object.values(_cards);
   if (!cards.length) { toast('ไม่มีข้อมูลสต็อก', false); return; }
-  var rows = [['ชื่อการ์ด','เซต','เลขการ์ด','ความหายาก','ต้นทุน/ใบ','จำนวน','ราคาตลาด','มูลค่ารวม(ทุน)']];
+  var rows = [['ชื่อสินค้า','แบรนด์/ชุด','รหัสสินค้า','ประเภท','ต้นทุน/ชิ้น','จำนวน','ราคาตลาด','มูลค่ารวม(ทุน)']];
   cards.forEach(function (c) {
     rows.push([c.name, c.card_set||'', c.card_no||'', c.rarity||'',
                c.cost||0, c.qty||0, c.market_price||0,
@@ -290,7 +279,7 @@ function exportStock() {
 
 function exportHistory() {
   if (!_histTxns.length) { toast('ไม่มีข้อมูลประวัติ', false); return; }
-  var rows = [['วันที่','ประเภท','ชื่อการ์ด','จำนวน','ราคา/ใบ','รวม','กำไร/ขาดทุน']];
+  var rows = [['วันที่','ประเภท','ชื่อสินค้า','จำนวน','ราคา/ชิ้น','รวม','กำไร/ขาดทุน']];
   _histTxns.forEach(function (t) {
     var total = (Number(t.price)||0) * (Number(t.qty)||0);
     rows.push([
@@ -349,16 +338,10 @@ function saveCards(arr) {
   (arr || []).forEach(function (c) { _cards[c.id] = c; });
 }
 
-function checkPrice(id) {
-  var c = _cards[id] || {};
-  window.open(c2pUrl(c.card_no), '_blank');
-}
-
-
 function deleteCard(id) {
   var c = _cards[id] || {};
   showConfirm(
-    'ลบการ์ดออกจากสต็อก',
+    'ลบสินค้าออกจากสต็อก',
     '"' + c.name + '" จะถูกลบถาวร',
     async function () {
       if (!lockBtn('del' + id)) return;
@@ -374,7 +357,7 @@ function cardItemHtml(c) {
   var market = Number(c.market_price) || 0;
   var cost   = Number(c.cost) || 0;
   var marketLine = market > 0
-    ? '<div class="card-market">📈 ราคาตลาด ' + fmt(market) + ' · กำไร ' + fmt(market - cost) + '/ใบ</div>'
+    ? '<div class="card-market">📈 ราคาตลาด ' + fmt(market) + ' · กำไร ' + fmt(market - cost) + '/ชิ้น</div>'
     : '<div class="card-market" style="color:var(--hint)">ยังไม่มีราคาตลาด</div>';
   var meta = [c.card_set, c.card_no, 'ทุน ' + fmt(cost)].filter(Boolean).join(' · ');
   var thumbHtml = c.image_url
@@ -384,11 +367,10 @@ function cardItemHtml(c) {
     + thumbHtml
     + '<div class="card-body">'
       + '<div class="card-name">' + esc(c.name) + rarityBadge(c.rarity)
-        + '<span class="badge b-stock" style="margin-left:6px">' + c.qty + ' ใบ</span></div>'
+        + '<span class="badge b-stock" style="margin-left:6px">' + c.qty + ' ชิ้น</span></div>'
       + '<div class="card-meta">' + esc(meta) + '</div>'
       + marketLine
-      + '<div class="card-actions btn-row">'
-        + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
+      + '<div class="btn-row" style="margin-top:8px">'
         + '<button class="btn" onclick="showEditCard(' + c.id + ')">✎ แก้ไข</button>'
         + '<button class="btn btn-danger" onclick="deleteCard(' + c.id + ')">✕</button>'
       + '</div>'
@@ -419,10 +401,7 @@ async function renderDashboard() {
   var unr      = Number(stats.unrealized) || 0;
   var topCards = cards.slice(0, 5);
 
-  var html = '<div class="banner">'
-    + '<p>ราคาตลาดอ้างอิงจาก <strong>card2price.com</strong> — กดเช็คราคาที่การ์ดเพื่อดูราคาล่าสุด แล้วอัปเดตได้เลย</p>'
-    + '<button class="btn btn-c2p" onclick="window.open(\'https://card2price.com/cards\',\'_blank\')">🔗 card2price ↗</button>'
-    + '</div>';
+  var html = '';
 
   html += '<div class="stats-grid">';
   [
@@ -432,8 +411,8 @@ async function renderDashboard() {
     ['กำไรยังไม่รับ',      unr,                 true],
     ['มูลค่าสต็อก (ทุน)',  stats.stock_value,   false],
     ['มูลค่าสต็อก (ตลาด)', stats.market_value,  false],
-    ['ซื้อมาทั้งหมด',       null, false, (stats.total_bought || 0) + ' ใบ'],
-    ['สต็อกคงเหลือ',        null, false, (stats.stock_count  || 0) + ' ใบ']
+    ['ซื้อมาทั้งหมด',       null, false, (stats.total_bought || 0) + ' ชิ้น'],
+    ['สต็อกคงเหลือ',        null, false, (stats.stock_count  || 0) + ' ชิ้น']
   ].forEach(function (s) {
     var val = s[3] !== undefined ? s[3] : fmt(s[1]);
     var cls = s[2] ? (Number(s[1]) >= 0 ? ' profit' : ' loss') : '';
@@ -442,12 +421,12 @@ async function renderDashboard() {
   });
   html += '</div>';
 
-  html += '<div class="section-hd"><span class="section-title">การ์ดมูลค่าสูงสุดในสต็อก</span></div>'
+  html += '<div class="section-hd"><span class="section-title">สินค้ามูลค่าสูงสุดในสต็อก</span></div>'
        + '<div class="card-list">';
   if (topCards.length) {
     topCards.forEach(function (c) { html += cardItemHtml(c); });
   } else {
-    html += '<div class="empty">ยังไม่มีสต็อก</div>';
+    html += '<div class="empty">ยังไม่มีสินค้าในสต็อก</div>';
   }
   html += '</div>';
 
@@ -462,10 +441,10 @@ async function renderDashboard() {
         + '<div class="chart-wrap"><canvas id="profit-chart" style="max-height:220px"></canvas></div>';
 
   // Ranking section
-  html += '<div class="section-hd"><span class="section-title">Top 10 การ์ดกำไรสูงสุด</span></div>';
+  html += '<div class="section-hd"><span class="section-title">Top 10 สินค้ากำไรสูงสุด</span></div>';
   if (ranking.length) {
     html += '<table class="rank-table"><thead><tr>'
-      + '<th class="rank-num">#</th><th>การ์ด</th><th>ขายไป</th><th style="text-align:right">กำไร</th>'
+      + '<th class="rank-num">#</th><th>สินค้า</th><th>ขายไป</th><th style="text-align:right">กำไร</th>'
       + '</tr></thead><tbody>';
     ranking.forEach(function (r, i) {
       var profit = Number(r.total_profit) || 0;
@@ -535,7 +514,7 @@ async function renderStock() {
   var token = _renderToken;
   var el = document.getElementById('tab-stock');
   el.innerHTML =
-    '<input class="search-box" placeholder="🔍 ค้นหาชื่อ หรือ เลขการ์ด..." oninput="searchCards(this.value)">'
+    '<input class="search-box" placeholder="🔍 ค้นหาชื่อ หรือ รหัสสินค้า..." oninput="searchCards(this.value)">'
     + _sortControlsHtml()
     + '<div class="section-hd">'
       + '<span class="section-title" id="stock-count">กำลังโหลด...</span>'
@@ -557,7 +536,7 @@ function renderStockList(cards) {
   el.className = 'card-list';
   var html = '';
   cards.forEach(function (c) { html += cardItemHtml(c); });
-  el.innerHTML = html || '<div class="empty">ไม่พบการ์ด</div>';
+  el.innerHTML = html || '<div class="empty">ไม่พบสินค้า</div>';
 }
 
 function searchCards(q) {
@@ -642,7 +621,7 @@ async function identifyCard(input) {
 
   try {
     var worker = await _getTWorker();
-    _csStatus('กำลังอ่านตัวอักษรบนการ์ด...', '');
+    _csStatus('กำลังวิเคราะห์รูปภาพ...', '');
     var result = await worker.recognize(file);
     var text   = result.data.text || '';
 
@@ -676,7 +655,7 @@ async function identifyCard(input) {
 
     var prefix = m
       ? '✓ ' + m[1] + m[2].padStart(2,'0') + '-' + m[3].padStart(3,'0') + '  '
-      : 'ไม่พบเลขการ์ด  ';
+      : 'ไม่พบรหัสสินค้า  ';
     _csStatus(prefix + '· แตะคำเพื่อใช้เป็นชื่อ', m ? 'var(--green)' : '');
     _csChips(chips.slice(0, 16));
   } catch (e) {
@@ -709,8 +688,8 @@ function useChip(word, btn) {
 function renderBuy() {
   var modeBar =
     '<div class="mode-toggle">'
-    + '<button class="mtog-btn' + (_bulkMode ? '' : ' active') + '" onclick="setBuyMode(false)">🃏 ใบเดียว</button>'
-    + '<button class="mtog-btn' + (_bulkMode ? ' active' : '') + '" onclick="setBuyMode(true)">📦 หลายใบ</button>'
+    + '<button class="mtog-btn' + (_bulkMode ? '' : ' active') + '" onclick="setBuyMode(false)">📦 รายการเดียว</button>'
+    + '<button class="mtog-btn' + (_bulkMode ? ' active' : '') + '" onclick="setBuyMode(true)">📋 หลายรายการ</button>'
     + '</div>';
 
   if (_bulkMode) {
@@ -722,15 +701,14 @@ function renderBuy() {
   var extraHtml = _buyShowExtra
     ? '<div id="buy-extra" class="buy-extra-section">'
         + '<div class="form-grid">'
-          + '<div class="field"><label>เซต / ภาค</label>'
-            + '<input id="b-set" type="text" placeholder="OP-01 ..." onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
-          + '<div class="field"><label>เลขการ์ด</label>'
-            + '<input id="b-no" type="text" placeholder="OP01-001" onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
+          + '<div class="field"><label>แบรนด์ / ชุด</label>'
+            + '<input id="b-set" type="text" placeholder="Nike, OP-01, ..." onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
+          + '<div class="field"><label>รหัสสินค้า</label>'
+            + '<input id="b-no" type="text" placeholder="SKU-001" onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
           + '<div class="field-hint form-full">'
-            + '<label>📌 ราคาตลาด card2price (฿)</label>'
+            + '<label>📌 ราคาตลาด (฿)</label>'
             + '<div class="inner">'
-              + '<input id="b-market" type="number" inputmode="decimal" min="0" placeholder="ใส่หลังเช็คราคาแล้ว" onkeydown="if(event.key===\'Enter\')submitBuy()">'
-              + '<button class="btn btn-c2p" onclick="openC2PBuy()">เช็ค ↗</button>'
+              + '<input id="b-market" type="number" inputmode="decimal" min="0" placeholder="ราคาตลาดปัจจุบัน" onkeydown="if(event.key===\'Enter\')submitBuy()">'
             + '</div></div>'
         + '</div>'
       + '</div>'
@@ -739,25 +717,8 @@ function renderBuy() {
   // media section (scan / image)
   var mediaHtml = _buyShowMedia
     ? '<div id="buy-media" class="buy-extra-section">'
-        + '<div class="card-scan">'
-          + '<div class="cs-top">'
-            + '<span class="cs-icon">📷</span>'
-            + '<div class="cs-texts"><b class="cs-title">สแกนการ์ด</b>'
-              + '<span class="cs-sub">ถ่ายรูปการ์ด — ดึงเลขการ์ดอัตโนมัติ</span>'
-            + '</div>'
-          + '</div>'
-          + '<div class="cs-ctrl">'
-            + '<input type="file" id="cs-file" accept="image/*" style="display:none" onchange="identifyCard(this)">'
-            + '<label class="btn btn-c2p" for="cs-file" style="cursor:pointer;flex-shrink:0">📷 เลือกรูป</label>'
-            + '<span id="cs-status" class="cs-status">เลือกรูปการ์ดเพื่อดึงข้อมูล</span>'
-          + '</div>'
-          + '<div id="cs-prev" class="cs-prev" style="display:none">'
-            + '<img id="cs-thumb" class="cs-thumb" alt="card">'
-            + '<div id="cs-chips" class="id-chips"></div>'
-          + '</div>'
-        + '</div>'
-        + '<div class="field form-full" style="margin-top:12px">'
-          + '<label>รูปการ์ด</label>'
+        + '<div class="field form-full">'
+          + '<label>รูปสินค้า</label>'
           + '<div class="img-upload-row">'
             + '<input type="file" id="b-img-file" accept="image/*" style="display:none" onchange="uploadCardImg(this,\'b-img-url\',\'b-img-prev\',\'b-img-thumb\')">'
             + '<label class="btn btn-c2p" for="b-img-file" style="cursor:pointer">📷 ถ่าย/อัปโหลด</label>'
@@ -777,24 +738,23 @@ function renderBuy() {
 
     // ── essential fields (always visible)
     + '<div class="form-grid">'
-      + '<div class="field form-full"><label>ชื่อการ์ด</label>'
-        + '<input id="b-name" type="text" placeholder="เช่น Zoro หรือ โซโล่" autocomplete="off"'
+      + '<div class="field form-full"><label>ชื่อสินค้า</label>'
+        + '<input id="b-name" type="text" placeholder="เช่น เสื้อ Nike, ของเล่น..." autocomplete="off"'
         + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
-      + '<div class="field"><label>ความหายาก</label>'
-        + '<select id="b-rarity"><option value="">—</option><option>C</option><option>UC</option>'
-        + '<option>R</option><option>SR</option><option>SEC</option><option>L</option></select></div>'
-      + '<div class="field"><label>ต้นทุนต่อใบ (฿)</label>'
+      + '<div class="field"><label>ประเภท / หมวด</label>'
+        + '<input id="b-rarity" type="text" placeholder="เช่น อาหาร, เสื้อผ้า..." onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
+      + '<div class="field"><label>ต้นทุนต่อชิ้น (฿)</label>'
         + '<input id="b-cost" type="number" inputmode="decimal" min="0" placeholder="0"'
         + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
-      + '<div class="field"><label>จำนวน (ใบ)</label>'
+      + '<div class="field"><label>จำนวน (ชิ้น)</label>'
         + '<input id="b-qty" type="number" inputmode="numeric" min="1" value="1"'
         + ' onkeydown="if(event.key===\'Enter\')submitBuy()"></div>'
     + '</div>'
 
     // ── optional toggles
     + '<div class="buy-opt-row">'
-      + '<button class="buy-opt-btn' + (_buyShowExtra ? ' active' : '') + '" onclick="toggleBuyExtra()">📋 เซต / เลขการ์ด / ราคาตลาด</button>'
-      + '<button class="buy-opt-btn' + (_buyShowMedia ? ' active' : '') + '" onclick="toggleBuyMedia()">📷 รูป / สแกน</button>'
+      + '<button class="buy-opt-btn' + (_buyShowExtra ? ' active' : '') + '" onclick="toggleBuyExtra()">📋 แบรนด์ / รหัสสินค้า / ราคาตลาด</button>'
+      + '<button class="buy-opt-btn' + (_buyShowMedia ? ' active' : '') + '" onclick="toggleBuyMedia()">📷 รูปสินค้า</button>'
     + '</div>'
     + extraHtml
     + mediaHtml
@@ -831,10 +791,6 @@ function toggleBuyMedia() {
   _restoreBuyFields(s);
 }
 
-function openC2PBuy() {
-  var el = document.getElementById('b-no');
-  window.open(c2pUrl(el ? el.value.trim() : ''), '_blank');
-}
 
 // ─── IMAGE UPLOAD HELPERS
 async function uploadCardImg(input, urlId, prevId, thumbId) {
@@ -889,7 +845,7 @@ async function submitBuy() {
   var imgUrl = _val('b-img-url').trim();
 
   if (!name) {
-    showMsg('buy-msg', 'กรุณาใส่ชื่อการ์ด', false);
+    showMsg('buy-msg', 'กรุณาใส่ชื่อสินค้า', false);
     unlockBtn('buy', btn, '✓ บันทึก');
     return;
   }
@@ -901,7 +857,7 @@ async function submitBuy() {
   });
 
   if (res && res.success) {
-    toast('✓ บันทึก "' + name + '" ' + qty + ' ใบ ต้นทุน ' + fmt(cost));
+    toast('✓ บันทึก "' + name + '" ' + qty + ' ชิ้น ต้นทุน ' + fmt(cost));
     ['b-name', 'b-set', 'b-no', 'b-cost', 'b-market'].forEach(function (id) {
       var el = document.getElementById(id); if (el) el.value = '';
     });
@@ -925,21 +881,17 @@ function setBuyMode(bulk) {
 }
 
 function renderBuyBulk(modeBar) {
-  var rarityOpts = ['','C','UC','R','SR','SEC','L'].map(function(r){
-    return '<option value="' + r + '">' + (r||'—') + '</option>';
-  }).join('');
-
   var rows = _bulkRows.map(function(row, i) {
     return '<div class="bulk-card" id="brow-' + i + '">'
       + '<div class="bulk-card-top">'
-        + '<input class="bulk-name" type="text" placeholder="ชื่อการ์ด" value="' + escHtml(row.name) + '" oninput="bulkUpdate(' + i + ',\'name\',this.value)">'
+        + '<input class="bulk-name" type="text" placeholder="ชื่อสินค้า" value="' + escHtml(row.name) + '" oninput="bulkUpdate(' + i + ',\'name\',this.value)">'
         + '<select class="bulk-rarity" onchange="bulkUpdate(' + i + ',\'rarity\',this.value)">'
           + rarityOpts.replace('value="' + row.rarity + '"', 'value="' + row.rarity + '" selected')
         + '</select>'
         + '<button class="btn-row-del" onclick="bulkRemoveRow(' + i + ')" title="ลบ">✕</button>'
       + '</div>'
       + '<div class="bulk-card-bottom">'
-        + '<div class="bulk-field"><label>ต้นทุน/ใบ (฿)</label>'
+        + '<div class="bulk-field"><label>ต้นทุน/ชิ้น (฿)</label>'
           + '<input class="bulk-cost" type="number" inputmode="decimal" min="0" placeholder="0" value="' + escHtml(row.cost) + '" oninput="bulkUpdate(' + i + ',\'cost\',this.value)"></div>'
         + '<div class="bulk-field"><label>จำนวน</label>'
           + '<input class="bulk-qty" type="number" inputmode="numeric" min="1" placeholder="1" value="' + escHtml(row.qty) + '" oninput="bulkUpdate(' + i + ',\'qty\',this.value)"></div>'
@@ -982,8 +934,8 @@ function bulkAddRow() {
   _bulkRows.push({name:'',rarity:'',cost:'',qty:'1'});
   var modeBar =
     '<div class="mode-toggle">'
-    + '<button class="mtog-btn" onclick="setBuyMode(false)">🃏 ใบเดียว</button>'
-    + '<button class="mtog-btn active" onclick="setBuyMode(true)">📦 หลายใบ</button>'
+    + '<button class="mtog-btn" onclick="setBuyMode(false)">📦 รายการเดียว</button>'
+    + '<button class="mtog-btn active" onclick="setBuyMode(true)">📋 หลายรายการ</button>'
     + '</div>';
   renderBuyBulk(modeBar);
   // focus last name input
@@ -998,8 +950,8 @@ function bulkRemoveRow(i) {
   if (_bulkRows.length === 0) _bulkRows.push({name:'',rarity:'',cost:'',qty:'1'});
   var modeBar =
     '<div class="mode-toggle">'
-    + '<button class="mtog-btn" onclick="setBuyMode(false)">🃏 ใบเดียว</button>'
-    + '<button class="mtog-btn active" onclick="setBuyMode(true)">📦 หลายใบ</button>'
+    + '<button class="mtog-btn" onclick="setBuyMode(false)">📦 รายการเดียว</button>'
+    + '<button class="mtog-btn active" onclick="setBuyMode(true)">📋 หลายรายการ</button>'
     + '</div>';
   renderBuyBulk(modeBar);
 }
@@ -1049,13 +1001,13 @@ async function renderSell() {
   saveCards(cards);
 
   if (!cards.length) {
-    el.innerHTML = '<div class="empty">ไม่มีสต็อก</div>';
+    el.innerHTML = '<div class="empty">ไม่มีสินค้าในสต็อก</div>';
     return;
   }
 
   el.innerHTML =
     '<div id="cart-bar" style="display:none"></div>'
-    + '<input class="search-box" id="sell-search" placeholder="🔍 ค้นหาการ์ดที่ต้องการขาย..." oninput="filterSell(this.value)">'
+    + '<input class="search-box" id="sell-search" placeholder="🔍 ค้นหาสินค้าที่ต้องการขาย..." oninput="filterSell(this.value)">'
     + '<div id="sell-list"></div>'
     + '<div id="sell-msg"></div>';
   renderCartBar();
@@ -1076,7 +1028,7 @@ function filterSell(q) {
 function renderSellList(cards) {
   var el = document.getElementById('sell-list');
   if (!el) return;
-  if (!cards.length) { el.innerHTML = '<div class="empty">ไม่พบการ์ด</div>'; return; }
+  if (!cards.length) { el.innerHTML = '<div class="empty">ไม่พบสินค้า</div>'; return; }
   var html = '';
   cards.forEach(function (c) {
     var market = Number(c.market_price) || 0;
@@ -1085,7 +1037,7 @@ function renderSellList(cards) {
     var initCls    = defPrice ? (market >= Number(c.cost) ? 'sell-profit-pos' : 'sell-profit-neg') : 'sell-profit-empty';
     html += '<div class="sell-card">'
       + '<div class="sell-name">' + esc(c.name) + rarityBadge(c.rarity) + '</div>'
-      + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + ' ใบ'
+      + '<div class="sell-meta">ทุน ' + fmt(c.cost) + ' · เหลือ ' + c.qty + ' ชิ้น'
         + (market > 0 ? ' · ตลาด ' + fmt(market) : '') + '</div>'
       + '<div id="sp-profit-' + c.id + '" class="sell-profit ' + initCls + '">' + initProfit + '</div>'
       + '<div class="sell-row-inputs">'
@@ -1102,7 +1054,6 @@ function renderSellList(cards) {
         + ' id="sn-' + c.id + '" style="display:none"'
         + ' onkeydown="if(event.key===\'Enter\')submitSell(' + c.id + ')">'
       + '<div class="sell-action-row">'
-        + '<button class="btn btn-c2p" onclick="checkPrice(' + c.id + ')">เช็คราคา ↗</button>'
         + '<button class="btn" id="note-btn-' + c.id + '" onclick="toggleSellNote(' + c.id + ')" title="หมายเหตุ">📝</button>'
         + '<button class="btn" id="cart-btn-' + c.id + '" onclick="addToCart(' + c.id + ')">🛒</button>'
         + '<button class="btn btn-primary" id="sell-btn-' + c.id + '" style="flex:1"'
@@ -1126,7 +1077,7 @@ function toggleSellNote(id) {
 function _profitText(cost, price, qty) {
   var p = (price - cost) * qty;
   return (p >= 0 ? '📈 กำไร ' : '📉 ขาดทุน ') + fmt(Math.abs(p))
-    + (qty > 1 ? ' (' + qty + ' ใบ)' : '');
+    + (qty > 1 ? ' (' + qty + ' ชิ้น)' : '');
 }
 
 function updateSellProfit(id) {
@@ -1165,7 +1116,7 @@ async function submitSell(id) {
   var res = await api('transactions', 'POST', {card_id: id, price: price, qty: qty, note: note});
   if (res && res.success) {
     var p = Number(res.profit) || 0;
-    toast('✓ ขาย ' + qty + ' ใบ ที่ ' + fmt(price)
+    toast('✓ ขาย ' + qty + ' ชิ้น ที่ ' + fmt(price)
       + ' · ' + (p >= 0 ? 'กำไร' : 'ขาดทุน') + ' ' + fmt(Math.abs(p)));
     renderSell();
   } else {
@@ -1281,7 +1232,7 @@ async function renderHistory() {
 
   el.innerHTML =
     '<div class="hist-filter">'
-      + '<input class="search-box" id="hist-q" placeholder="🔍 ค้นหาชื่อการ์ด..." oninput="filterHistory()">'
+      + '<input class="search-box" id="hist-q" placeholder="🔍 ค้นหาชื่อสินค้า..." oninput="filterHistory()">'
       + '<div class="hist-filter-row">'
         + '<select id="hist-type" class="hist-sel" onchange="filterHistory()">'
           + '<option value="">ทุกประเภท</option>'
