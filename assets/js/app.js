@@ -885,9 +885,7 @@ function renderBuyBulk(modeBar) {
     return '<div class="bulk-card" id="brow-' + i + '">'
       + '<div class="bulk-card-top">'
         + '<input class="bulk-name" type="text" placeholder="ชื่อสินค้า" value="' + escHtml(row.name) + '" oninput="bulkUpdate(' + i + ',\'name\',this.value)">'
-        + '<select class="bulk-rarity" onchange="bulkUpdate(' + i + ',\'rarity\',this.value)">'
-          + rarityOpts.replace('value="' + row.rarity + '"', 'value="' + row.rarity + '" selected')
-        + '</select>'
+        + '<input class="bulk-rarity" type="text" placeholder="ประเภท" value="' + escHtml(row.rarity) + '" oninput="bulkUpdate(' + i + ',\'rarity\',this.value)">'
         + '<button class="btn-row-del" onclick="bulkRemoveRow(' + i + ')" title="ลบ">✕</button>'
       + '</div>'
       + '<div class="bulk-card-bottom">'

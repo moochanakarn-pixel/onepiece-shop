@@ -118,6 +118,7 @@ body{
 .b-r{background:var(--blue-bg);color:var(--blue)}
 .b-sr{background:var(--purple-bg);color:var(--purple)}
 .b-sec,.b-l{background:var(--amber-bg);color:var(--amber)}
+.b-type{background:var(--border);color:var(--muted)}
 .btn-row{display:flex;gap:6px;flex-wrap:wrap}
 
 /* ── Buttons ─────────────────────────────────────────────────────────── */
